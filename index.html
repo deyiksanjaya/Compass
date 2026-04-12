@@ -277,7 +277,6 @@
       let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
-        // BUG FIX: Beta negatif = Angkat atas HP (0). Beta positif = Turunin atas HP (180).
         if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
         else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
         else if (rawGamma > mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } 
@@ -285,7 +284,6 @@
       } 
       else if (mState === 'TILTING') {
         let match = false;
-        // BUG FIX: Harus konsisten sama rule IDLE di atas
         if (activeDirection === 0 && rawBeta < -mConf.threshold) match = true;
         else if (activeDirection === 180 && rawBeta > mConf.threshold) match = true;
         else if (activeDirection === 90 && rawGamma > mConf.threshold) match = true;
@@ -307,7 +305,6 @@
           stateTimer = now;
           startAnimHeading = currentHeading;
           
-          // BUG FIX: isTrueNorth cuma aktif kalau targetnya ATAS (0) DAN kompas emang madep Utara (352 sampe 8)
           let normalizedHeading = ((startAnimHeading % 360) + 360) % 360;
           let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
           isTrueNorth = (activeDirection === 0 && isFacingNorth);
@@ -379,11 +376,8 @@
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
         if (el) {
-          if (label.type === 'letter') {
-            el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
-          } else {
-            el.style.transform = `translate(-50%, -50%) rotate(0deg)`;
-          }
+          // SEMUA teks (baik angka maupun huruf N E S W) akan selalu berdiri tegak
+          el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
         }
       });
 
