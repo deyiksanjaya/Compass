@@ -43,6 +43,7 @@
     
     #magic-indicator {
       transition: opacity 0.15s ease-in-out;
+      /* Opacity bikin elemen invisible tanpa menghilangkan spasinya (gak bikin teks lompat) */
     }
   </style>
 
@@ -112,7 +113,8 @@
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
 
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
-      <p id="coordsText">--°--'--" N --°--'--" E</p>
+      <!-- Tanda (') pertama kita kasih ID untuk triknya -->
+      <p id="coordsText">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
       <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
     </div>
@@ -151,8 +153,7 @@
     let startAnimHeading = 0;
     let isTrueNorth = false;
     let shakeOffset = 0;
-    let isBlinking = false; 
-    let magicIndicatorEl = null;
+    let magicIndicatorEl = document.getElementById('magic-indicator');
 
     let tapCount = 0;
     let tapTimeout = null;
@@ -266,8 +267,10 @@
       if (!isRunning) return;
       const now = Date.now();
 
-      if (magicIndicatorEl && !isBlinking) {
-        if (mState === 'TILTING' || mState === 'LOCKED' || mState === 'ON_TABLE') {
+      // Atur Visibilitas Indikator Sulap (Tanda Petik Satu Pertama)
+      // opacity: 0 bikin dia tembus pandang tapi spasinya nggak ilang
+      if (magicIndicatorEl) {
+        if (mState === 'TILTING' || mState === 'BLINKING_INDICATOR') {
           magicIndicatorEl.style.opacity = '0';
         } else {
           magicIndicatorEl.style.opacity = '1';
@@ -302,6 +305,18 @@
       else if (mState === 'ON_TABLE') {
         if (!isFlat) mState = 'LOCKED'; 
         else if (now - stateTimer > mConf.flatDelay) {
+          mState = 'BLINKING_INDICATOR';
+          stateTimer = now;
+        }
+      } 
+      else if (mState === 'BLINKING_INDICATOR') {
+        if (now - stateTimer > 250) {
+          mState = 'WAITING_ANIMATION';
+          stateTimer = now;
+        }
+      }
+      else if (mState === 'WAITING_ANIMATION') {
+        if (now - stateTimer > 250) {
           mState = 'ANIMATING';
           stateTimer = now;
           startAnimHeading = currentHeading;
@@ -309,18 +324,8 @@
           let normalizedHeading = ((startAnimHeading % 360) + 360) % 360;
           let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
           isTrueNorth = (activeDirection === 0 && isFacingNorth);
-
-          if (magicIndicatorEl) {
-            isBlinking = true;
-            magicIndicatorEl.style.opacity = '1'; 
-            setTimeout(() => { if (magicIndicatorEl) magicIndicatorEl.style.opacity = '0'; }, 150); 
-            setTimeout(() => { 
-              if (magicIndicatorEl) magicIndicatorEl.style.opacity = '1'; 
-              isBlinking = false; 
-            }, 300);
-          }
         }
-      } 
+      }
       else if (mState === 'ANIMATING') {
         isOverridingHeading = true;
         let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
@@ -460,8 +465,9 @@
       const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
       const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
       
-      const degreeSymbol = isFirst ? `<span id="magic-indicator">°</span>` : `°`;
-      return `${degrees}${degreeSymbol}${minutes}'${seconds}" ${dir}`;
+      // Indikator pindah ke lambang menit (')
+      const minuteSymbol = isFirst ? `<span id="magic-indicator">'</span>` : `'`;
+      return `${degrees}°${minutes}${minuteSymbol}${seconds}" ${dir}`;
     }
 
     function getDistance(lat1, lon1, lat2, lon2) {
