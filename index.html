@@ -41,6 +41,11 @@
     }
     .setting-row { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 1rem; align-items: center;}
     .setting-row input { width: 80px; background: #1c1c1e; border: 1px solid #333; color: white; padding: 4px 8px; border-radius: 6px; text-align: right;}
+    
+    /* Indicator Transisi Biar Smooth */
+    #magic-indicator {
+      transition: opacity 0.15s ease-in-out;
+    }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
@@ -106,12 +111,12 @@
 
   <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <h1 id="headingText" class="font-ios-thin leading-none mb-3" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
+    <!-- mb-8 untuk nurunin info di bawah kompas -->
+    <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
-      <!-- Tap elevationText 5x untuk buka setting -->
       <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
     </div>
   </div>
@@ -130,36 +135,31 @@
 
     // --- MAGIC CONFIG ---
     let mConf = {
-      threshold: 30,      // Kemiringan minimal
-      holdTime: 1500,     // Harus tahan berapa lama (ms)
-      flatDelay: 3000,    // Nunggu di meja sebelum jalan (ms)
-      shakeTime: 2500,    // Durasi goyang (ms)
-      animTime: 3000      // Durasi snap/spin (ms)
+      threshold: 30,
+      holdTime: 1500,
+      flatDelay: 3000,
+      shakeTime: 2500,
+      animTime: 3000
     };
 
-    // Load custom settings
     try {
       const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
       if(saved) mConf = {...mConf, ...saved};
     } catch(e){}
 
-    // Magic State Machine
     let mState = 'IDLE'; 
-    // IDLE -> TILTING -> LOCKED -> WAITING_FLAT -> ON_TABLE -> ANIMATING -> SHAKING -> RETURNING -> IDLE
-    
     let rawBeta = 0, rawGamma = 0;
     let tiltStart = 0;
-    let activeDirection = null; // 0 (Atas), 90 (Kiri), 180 (Bawah), 270 (Kanan)
+    let activeDirection = null; 
     let stateTimer = 0;
     let startAnimHeading = 0;
     let isTrueNorth = false;
     let shakeOffset = 0;
+    let isBlinking = false; // Mencegah bentrok opacity saat kedip
 
-    // Secret Setting Trigger
     let tapCount = 0;
     let tapTimeout = null;
 
-    // Engine State
     let targetHeading = 0, currentHeading = 0;
     let targetTiltX = 0, currentTiltX = 0;
     let targetTiltY = 0, currentTiltY = 0;
@@ -172,7 +172,6 @@
     let hasRequestedPermission = false;
     let watchdogTimer = null;
 
-    // Elements
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
@@ -207,7 +206,7 @@
       mConf.animTime = parseFloat(document.getElementById('set-anim').value) * 1000;
       localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
       settingsModal.style.display = 'none';
-      mState = 'IDLE'; // Reset state
+      mState = 'IDLE'; 
     }
 
     // --- UI SETUP ---
@@ -245,7 +244,8 @@
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        textSpan.style.marginTop = `${label.outer ? -154 : -75}px`; 
+        // Radius dijauhkan menjadi -165
+        textSpan.style.marginTop = `${label.outer ? -165 : -75}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         container.appendChild(textSpan);
@@ -258,7 +258,6 @@
       return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
-    // Easing helper
     function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
     // --- MAIN RENDER & MAGIC MACHINE ---
@@ -266,96 +265,92 @@
       if (!isRunning) return;
       const now = Date.now();
 
-      // --- MAGIC STATE MACHINE ---
-      let isOverridingHeading = false;
+      // Indikator Magic (Simbol Derajat)
+      const indicator = document.getElementById('magic-indicator');
+      if (indicator && !isBlinking) {
+        if (mState === 'TILTING' || mState === 'LOCKED' || mState === 'ON_TABLE') {
+          indicator.style.opacity = '0';
+        } else {
+          indicator.style.opacity = '1';
+        }
+      }
 
-      // 1. Cek Flat (Meja)
+      let isOverridingHeading = false;
       let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
-        // Cek input gyro
-        if (rawBeta > mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       // Miring ke Atas (Top Edge Down) -> Nunjuk Atas (0)
-        else if (rawBeta < -mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } // Miring Bawah -> Nunjuk Bawah (180)
-        else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } // Miring Kanan -> Nunjuk Kanan (270 di Dial)
-        else if (rawGamma < -mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } // Miring Kiri -> Nunjuk Kiri (90 di Dial)
-
-      } else if (mState === 'TILTING') {
-        // Harus nahan posisi
+        if (rawBeta > mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
+        else if (rawBeta < -mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
+        else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } 
+        else if (rawGamma < -mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } 
+      } 
+      else if (mState === 'TILTING') {
         let match = false;
         if (activeDirection === 0 && rawBeta > mConf.threshold) match = true;
         else if (activeDirection === 180 && rawBeta < -mConf.threshold) match = true;
         else if (activeDirection === 270 && rawGamma > mConf.threshold) match = true;
         else if (activeDirection === 90 && rawGamma < -mConf.threshold) match = true;
 
-        if (!match) {
-          mState = 'IDLE'; // Gagal nahan
-        } else if (now - tiltStart > mConf.holdTime) {
-          // Input Sukses!
+        if (!match) mState = 'IDLE'; 
+        else if (now - tiltStart > mConf.holdTime) {
           mState = 'LOCKED';
           if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
         }
-
-      } else if (mState === 'LOCKED') {
-        // Nunggu ditaruh di meja
-        if (isFlat) {
-          mState = 'ON_TABLE';
-          stateTimer = now;
-        }
-
-      } else if (mState === 'ON_TABLE') {
-        // Hitung mundur di atas meja
-        if (!isFlat) mState = 'LOCKED'; // Diambil lagi sebelum selesai
+      } 
+      else if (mState === 'LOCKED') {
+        if (isFlat) { mState = 'ON_TABLE'; stateTimer = now; }
+      } 
+      else if (mState === 'ON_TABLE') {
+        if (!isFlat) mState = 'LOCKED'; 
         else if (now - stateTimer > mConf.flatDelay) {
           mState = 'ANIMATING';
           stateTimer = now;
           startAnimHeading = currentHeading;
           
-          // Cek apakah target ternyata udah utara asli (+- 15 derajat)
-          let diffToTarget = Math.abs((targetHeading % 360) - activeDirection);
-          if (diffToTarget > 180) diffToTarget = 360 - diffToTarget;
-          
-          isTrueNorth = (diffToTarget <= 15);
-        }
+          // Bug Fix: Murni ngecek apakah targetnya adalah Utara (0) relatif terhadap HP
+          isTrueNorth = (activeDirection === 0);
 
-      } else if (mState === 'ANIMATING') {
+          // Animasi kedip (blink) indikator derajat
+          if (indicator) {
+            isBlinking = true;
+            indicator.style.opacity = '1'; // Muncul
+            setTimeout(() => { if (indicator) indicator.style.opacity = '0'; }, 150); // Kedip hilang
+            setTimeout(() => { 
+              if (indicator) indicator.style.opacity = '1'; // Muncul lagi & stay
+              isBlinking = false; 
+            }, 300);
+          }
+        }
+      } 
+      else if (mState === 'ANIMATING') {
         isOverridingHeading = true;
         let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
         let ease = easeInOutCubic(progress);
 
         if (isTrueNorth) {
-          // Spin 360 kalo udah di utara
           currentHeading = startAnimHeading + (360 * ease);
         } else {
-          // Snap ke target
           let diff = activeDirection - (startAnimHeading % 360);
           if (diff < -180) diff += 360;
           if (diff > 180) diff -= 360;
           currentHeading = startAnimHeading + (diff * ease);
         }
 
-        if (progress >= 1) {
-          mState = 'SHAKING';
-          stateTimer = now;
-        }
-
-      } else if (mState === 'SHAKING') {
+        if (progress >= 1) { mState = 'SHAKING'; stateTimer = now; }
+      } 
+      else if (mState === 'SHAKING') {
         isOverridingHeading = true;
-        shakeOffset = Math.sin(now / 15) * 1.5; // Getar
+        shakeOffset = Math.sin(now / 15) * 1.5; 
         currentHeading = (isTrueNorth ? (startAnimHeading + 360) : activeDirection) + shakeOffset;
 
         if (now - stateTimer > mConf.shakeTime) {
-          if (isTrueNorth) {
-             mState = 'IDLE'; // Selesai
-          } else {
-             mState = 'RETURNING';
-             stateTimer = now;
-             startAnimHeading = currentHeading - shakeOffset;
-          }
+          if (isTrueNorth) mState = 'IDLE'; 
+          else { mState = 'RETURNING'; stateTimer = now; startAnimHeading = currentHeading - shakeOffset; }
         }
-
-      } else if (mState === 'RETURNING') {
+      } 
+      else if (mState === 'RETURNING') {
         isOverridingHeading = true;
-        let progress = Math.min((now - stateTimer) / (mConf.animTime * 1.5), 1); // Return lebih lambat dikit biar natural
+        let progress = Math.min((now - stateTimer) / (mConf.animTime * 1.5), 1); 
         let ease = easeInOutCubic(progress);
 
         let diff = targetHeading - startAnimHeading;
@@ -363,13 +358,9 @@
         while (diff > 180) diff -= 360;
         
         currentHeading = startAnimHeading + (diff * ease);
-
-        if (progress >= 1) {
-          mState = 'IDLE';
-        }
+        if (progress >= 1) mState = 'IDLE';
       }
 
-      // --- SENSOR UPDATE (Kalau gak dioverride Magic) ---
       if (!isOverridingHeading) {
         let diffHeading = targetHeading - currentHeading;
         while (diffHeading < -180) diffHeading += 360;
@@ -380,13 +371,13 @@
       currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
       currentTiltY += (targetTiltY - currentTiltY) * TILT_SMOOTHING;
 
-      // Update DOM
       dial.style.transform = `rotate(${-currentHeading}deg)`;
       levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
 
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
-        if(el) el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
+        // Bug Fix: Kembalikan rumus asli agar teks tidak ikut terbalik
+        if(el) el.style.transform = `translate(-50%, -50%) rotate(${-(currentHeading + label.deg)}deg)`;
       });
 
       let displayHeading = Math.round((currentHeading % 360 + 360) % 360);
@@ -399,7 +390,7 @@
     function resetWatchdog() {
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
-        if (hasRequestedPermission && document.visibilityState === 'visible') attachOrientationListener();
+        if (hasRequestedPermission && document.visibilityState === 'visible') attachOrientationListener(true);
       }, 3000);
     }
 
@@ -422,7 +413,8 @@
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
 
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        if (!isAutoStart || hasRequestedPermission) {
+        // Bug Fix: Bypass prompt sepenuhnya kalau ini mode auto-start
+        if (!isAutoStart) {
           DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
               if (permissionState === 'granted') {
@@ -431,10 +423,13 @@
                 hasRequestedPermission = true;
                 startEngine();
               } else {
-                if(!isAutoStart) alert("Akses sensor ditolak. Restart app ya.");
+                alert("Akses sensor ditolak. Restart app ya.");
                 document.getElementById('calibration-overlay').style.display = 'flex';
               }
             }).catch(() => { document.getElementById('calibration-overlay').style.display = 'flex'; });
+        } else {
+          window.addEventListener('deviceorientation', handleOrientation);
+          startEngine();
         }
       } else {
         localStorage.setItem('compassPermissionGranted', '1');
@@ -459,19 +454,67 @@
     }
 
     // --- LOKASI ---
+    function toDMS(coord, isLat, isFirst) {
+      const absolute = Math.abs(coord);
+      const degrees = Math.floor(absolute);
+      const minutesNotTruncated = (absolute - degrees) * 60;
+      const minutes = Math.floor(minutesNotTruncated);
+      const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
+      const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
+      
+      // Inject span buat indikator rahasia
+      const degreeSymbol = isFirst ? `<span id="magic-indicator">°</span>` : `°`;
+      return `${degrees}${degreeSymbol}${minutes}'${seconds}" ${dir}`;
+    }
+
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; 
+      const p1 = lat1 * Math.PI/180;
+      const p2 = lat2 * Math.PI/180;
+      const dp = (lat2-lat1) * Math.PI/180;
+      const dl = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+    }
+
+    // Dibawa kembali dengan aman
+    async function fetchAltitudeFallback(lat, lon) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (data && data.results && data.results[0]) {
+          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
+        }
+      } catch (e) {}
+    }
+
     function startGPS() {
       if (!navigator.geolocation) return;
-      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      
+      // Bug Fix: Clean up sebelum assign watchId baru
+      if (watchId !== null) { 
+        navigator.geolocation.clearWatch(watchId); 
+        watchId = null; 
+      }
 
       watchId = navigator.geolocation.watchPosition(
         pos => {
           const lat = pos.coords.latitude; const lon = pos.coords.longitude;
-          coordsText.innerText = `${Math.floor(Math.abs(lat))}°${Math.floor((Math.abs(lat)%1)*60)}'${Math.floor(((Math.abs(lat)%1)*60%1)*60)}" ${lat>=0?'N':'S'} ${Math.floor(Math.abs(lon))}°${Math.floor((Math.abs(lon)%1)*60)}'${Math.floor(((Math.abs(lon)%1)*60%1)*60)}" ${lon>=0?'E':'W'}`;
+          let alt = pos.coords.altitude;
           
-          if (pos.coords.altitude) elevationText.innerText = `${Math.round(pos.coords.altitude)} m Elevation`;
+          coordsText.innerHTML = `${toDMS(lat, true, true)} ${toDMS(lon, false, false)}`;
           
-          if (!lastFetchedLat) {
-            lastFetchedLat = lat;
+          if (alt !== null && alt !== undefined && alt !== 0) {
+            elevationText.innerText = `${Math.round(alt)} m Elevation`;
+          } else if (elevationText.innerText === "Elevation N/A" || elevationText.innerText.includes("...")) {
+            fetchAltitudeFallback(lat, lon);
+          }
+          
+          if (!lastFetchedLat || getDistance(lastFetchedLat, lastFetchedLon, lat, lon) > 50) {
+            lastFetchedLat = lat; lastFetchedLon = lon;
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
             .then(res => res.json())
             .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Lokasi Ditemukan"; })
