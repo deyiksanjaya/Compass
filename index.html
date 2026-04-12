@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -33,17 +33,18 @@
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     .font-ios-thin { font-weight: 100; letter-spacing: -2px; }
     
-    #settings-modal {
-      position: absolute; inset: 0; background-color: rgba(0,0,0,0.95); z-index: 999;
-      display: none; flex-direction: column; align-items: center; justify-content: center;
-      padding: 2rem;
-    }
-    .setting-row { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 1rem; align-items: center;}
-    .setting-row input { width: 80px; background: #1c1c1e; border: 1px solid #333; color: white; padding: 4px 8px; border-radius: 6px; text-align: right;}
-    
     #magic-indicator {
       transition: opacity 0.15s ease-in-out;
-      /* Opacity bikin elemen invisible tanpa menghilangkan spasinya (gak bikin teks lompat) */
+    }
+
+    /* Hilangkan panah up/down di input number biar lebih clean */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
     }
   </style>
 
@@ -54,35 +55,44 @@
   <div id="calibration-overlay" onclick="startAppManual()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <p class="text-lg font-medium text-gray-300 tracking-wide">Ketuk untuk mulai</p>
+      <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
     </div>
   </div>
 
   <!-- Settings Modal Rahasia -->
-  <div id="settings-modal">
-    <h2 class="text-2xl font-semibold mb-6 text-white">Magic Settings</h2>
-    <div class="setting-row">
-      <label>Tilt Threshold (°)</label>
-      <input type="number" id="set-threshold" value="30">
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden items-center justify-center p-6 opacity-0 transition-opacity duration-300">
+    <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300" id="settings-card">
+      <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
+      <p class="text-[13px] text-gray-400 mb-6">Configure the secret compass behavior.</p>
+
+      <div class="space-y-4">
+        <div class="flex justify-between items-center">
+          <label class="text-[15px] text-gray-200">Tilt Threshold (°)</label>
+          <input type="number" id="set-threshold" value="30" class="w-16 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white text-right text-[15px] focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-all">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[15px] text-gray-200">Hold Tilt (sec)</label>
+          <input type="number" step="0.1" id="set-hold" value="1.5" class="w-16 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white text-right text-[15px] focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-all">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[15px] text-gray-200">Table Delay (sec)</label>
+          <input type="number" step="0.1" id="set-delay" value="3.0" class="w-16 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white text-right text-[15px] focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-all">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[15px] text-gray-200">Shake Duration (sec)</label>
+          <input type="number" step="0.1" id="set-shake" value="2.5" class="w-16 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white text-right text-[15px] focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-all">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[15px] text-gray-200">Spin Animation (sec)</label>
+          <input type="number" step="0.1" id="set-anim" value="3.0" class="w-16 bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-white text-right text-[15px] focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-all">
+        </div>
+      </div>
+
+      <div class="mt-8 space-y-3">
+        <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-3 px-4 rounded-xl text-[16px] transition-colors">Save & Close</button>
+        <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-xl text-[15px] transition-colors">Reset to Defaults</button>
+      </div>
     </div>
-    <div class="setting-row">
-      <label>Hold Tilt (detik)</label>
-      <input type="number" step="0.1" id="set-hold" value="1.5">
-    </div>
-    <div class="setting-row">
-      <label>Delay Meja (detik)</label>
-      <input type="number" step="0.1" id="set-delay" value="3.0">
-    </div>
-    <div class="setting-row">
-      <label>Durasi Shaking (detik)</label>
-      <input type="number" step="0.1" id="set-shake" value="2.5">
-    </div>
-    <div class="setting-row">
-      <label>Animasi Muter (detik)</label>
-      <input type="number" step="0.1" id="set-anim" value="3.0">
-    </div>
-    <button onclick="saveSettings()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full">Simpan & Tutup</button>
-    <button onclick="resetApp()" class="mt-4 bg-red-900/50 border border-red-500 hover:bg-red-800 text-white font-medium py-2 px-6 rounded-full text-sm">Reset Everything</button>
   </div>
 
   <!-- UI Kompas Utama -->
@@ -113,9 +123,8 @@
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
 
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
-      <!-- Tanda (') pertama kita kasih ID untuk triknya -->
       <p id="coordsText">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-      <p id="cityText">Mencari lokasi...</p>
+      <p id="cityText">Locating...</p>
       <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
     </div>
   </div>
@@ -180,18 +189,44 @@
     const elevationText = document.getElementById('elevationText');
     const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
+    const settingsCard = document.getElementById('settings-card');
+
+    function openSettings() {
+      document.getElementById('set-threshold').value = mConf.threshold;
+      document.getElementById('set-hold').value = mConf.holdTime / 1000;
+      document.getElementById('set-delay').value = mConf.flatDelay / 1000;
+      document.getElementById('set-shake').value = mConf.shakeTime / 1000;
+      document.getElementById('set-anim').value = mConf.animTime / 1000;
+      
+      settingsModal.classList.remove('hidden');
+      settingsModal.classList.add('flex');
+      
+      // Animasi masuk
+      requestAnimationFrame(() => {
+        settingsModal.classList.remove('opacity-0');
+        settingsCard.classList.remove('scale-95');
+        settingsCard.classList.add('scale-100');
+      });
+    }
+
+    function closeSettings() {
+      // Animasi keluar
+      settingsModal.classList.add('opacity-0');
+      settingsCard.classList.remove('scale-100');
+      settingsCard.classList.add('scale-95');
+      
+      setTimeout(() => {
+        settingsModal.classList.add('hidden');
+        settingsModal.classList.remove('flex');
+      }, 300);
+    }
 
     function handleElevationTap() {
       tapCount++;
       clearTimeout(tapTimeout);
       tapTimeout = setTimeout(() => tapCount = 0, 1000);
       if(tapCount >= 5) {
-        document.getElementById('set-threshold').value = mConf.threshold;
-        document.getElementById('set-hold').value = mConf.holdTime / 1000;
-        document.getElementById('set-delay').value = mConf.flatDelay / 1000;
-        document.getElementById('set-shake').value = mConf.shakeTime / 1000;
-        document.getElementById('set-anim').value = mConf.animTime / 1000;
-        settingsModal.style.display = 'flex';
+        openSettings();
         tapCount = 0;
       }
     }
@@ -203,12 +238,12 @@
       mConf.shakeTime = parseFloat(document.getElementById('set-shake').value) * 1000;
       mConf.animTime = parseFloat(document.getElementById('set-anim').value) * 1000;
       localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
-      settingsModal.style.display = 'none';
+      closeSettings();
       mState = 'IDLE'; 
     }
 
     window.resetApp = function() {
-      if(confirm("Yakin mau reset semua setelan dan izin? App akan direfresh.")) {
+      if(confirm("Are you sure you want to reset all settings? The app will reload.")) {
         localStorage.clear();
         location.reload();
       }
@@ -267,8 +302,6 @@
       if (!isRunning) return;
       const now = Date.now();
 
-      // Atur Visibilitas Indikator Sulap (Tanda Petik Satu Pertama)
-      // opacity: 0 bikin dia tembus pandang tapi spasinya nggak ilang
       if (magicIndicatorEl) {
         if (mState === 'TILTING' || mState === 'BLINKING_INDICATOR') {
           magicIndicatorEl.style.opacity = '0';
@@ -406,8 +439,19 @@
       rawBeta = event.beta || 0;
       rawGamma = event.gamma || 0;
 
-      targetTiltX = Math.max(-55, Math.min(55,  rawGamma * 0.6));
-      targetTiltY = Math.max(-55, Math.min(55,  rawBeta  * 0.6));
+      let sensitivity = 1.6;
+      let bX = -rawGamma * sensitivity;
+      let bY = rawBeta * sensitivity;
+
+      let maxRadius = 55;
+      let dist = Math.sqrt(bX * bX + bY * bY);
+      if (dist > maxRadius) {
+        bX = (bX / dist) * maxRadius;
+        bY = (bY / dist) * maxRadius;
+      }
+
+      targetTiltX = bX;
+      targetTiltY = bY;
 
       let heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
       if (heading !== null) targetHeading = heading;
@@ -422,12 +466,11 @@
           DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
               if (permissionState === 'granted') {
-                localStorage.setItem('compassPermissionGranted', '1');
                 window.addEventListener('deviceorientation', handleOrientation);
                 hasRequestedPermission = true;
                 startEngine();
               } else {
-                alert("Akses sensor ditolak. Restart app ya.");
+                alert("Sensor access denied. Please refresh to try again.");
                 document.getElementById('calibration-overlay').style.display = 'flex';
               }
             }).catch(() => { document.getElementById('calibration-overlay').style.display = 'flex'; });
@@ -436,7 +479,6 @@
           startEngine();
         }
       } else {
-        localStorage.setItem('compassPermissionGranted', '1');
         hasRequestedPermission = true;
         if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', handleOrientation);
         else window.addEventListener('deviceorientation', handleOrientation);
@@ -465,7 +507,6 @@
       const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
       const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
       
-      // Indikator pindah ke lambang menit (')
       const minuteSymbol = isFirst ? `<span id="magic-indicator">'</span>` : `'`;
       return `${degrees}°${minutes}${minuteSymbol}${seconds}" ${dir}`;
     }
@@ -520,7 +561,7 @@
             lastFetchedLat = lat; lastFetchedLon = lon;
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
             .then(res => res.json())
-            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Lokasi Ditemukan"; })
+            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Location Found"; })
             .catch(() => {});
           }
         }, 
@@ -542,8 +583,7 @@
     });
 
     window.startAppManual = function() { attachOrientationListener(false); }
-    if (localStorage.getItem('compassPermissionGranted')) { hasRequestedPermission = true; attachOrientationListener(true); }
-
+    
     drawTicks(); initLabels();
   </script>
 
