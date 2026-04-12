@@ -14,7 +14,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600&display=swap');
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
@@ -82,7 +82,8 @@
 
   <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-12 mt-4">
-    <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
+    <!-- Garis putih statis diperpanjang, nyentuh batas dalem cincin (-100 dari radius tengah) -->
+    <div class="absolute top-[18px] left-1/2 -translate-x-1/2 w-[3px] h-[52px] bg-white z-20 rounded-sm"></div>
 
     <div id="dial" class="absolute inset-0 w-full h-full z-10">
       <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
@@ -105,8 +106,10 @@
 
   <!-- Detail Teks Bawah -->
   <div class="text-center pointer-events-none w-full px-4 mt-6">
-    <h1 id="headingText" class="text-[5.5rem] font-light tracking-tight leading-none mb-6">0° N</h1>
-    <div class="space-y-2 text-[15px] font-normal tracking-wide text-gray-100">
+    <!-- Font derajat dibikin lebih tipis (font-thin) -->
+    <h1 id="headingText" class="text-[5.5rem] font-thin tracking-tight leading-none mb-6">0° N</h1>
+    <!-- Font info di bawah dibikin lebih tebel (font-medium) -->
+    <div class="space-y-2 text-[15px] font-medium tracking-wide text-gray-100">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
       <p id="elevationText">Elevation N/A</p>
@@ -129,7 +132,7 @@
     let currentRotation = 0; 
     let secretTarget = null;
     let isMagicMode = false;
-    let orientationListenerAttached = false; // Flag biar event ga ke-attach 2x
+    let orientationListenerAttached = false; 
     let locationFetched = false;
 
     const dial = document.getElementById('dial');
@@ -152,7 +155,6 @@
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
         
-        // Panjang garis disamain, cuma beda ketebalan
         if (i % 30 === 0) {
           ctx.lineWidth = 2;
         } else {
@@ -209,7 +211,6 @@
         el.style.transform = `translate(-50%, -50%) rotate(${-(currentRotation + label.deg)}deg)`;
       });
 
-      // Normalisasi heading yang benar
       let heading = Math.round(((-(currentRotation % 360)) + 360) % 360);
       if (heading === 360) heading = 0;
       headingText.innerText = `${heading}° ${getDirection(heading)}`;
@@ -240,7 +241,6 @@
             }
           }).catch(console.error);
       } else {
-        // Prioritas absolute untuk Android biar dapet true north
         if ('ondeviceorientationabsolute' in window) {
           window.addEventListener('deviceorientationabsolute', handleOrientation);
         } else {
@@ -271,12 +271,11 @@
           
           document.getElementById('coordsText').innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
           
-          // Fix Elevation null issue
           const altText = (alt !== null && alt !== undefined) ? `${Math.round(alt)} m Elevation` : "Elevation N/A";
           document.getElementById('elevationText').innerText = altText;
 
           if (!locationFetched) {
-            locationFetched = true; // Set flag duluan biar ga race condition
+            locationFetched = true; 
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
               headers: { 'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7' }
             })
@@ -288,7 +287,7 @@
                 }
               }).catch(() => {
                 document.getElementById('cityText').innerText = "Area Lokal";
-                locationFetched = false; // Boleh coba lagi nanti kalau gagal API
+                locationFetched = false; 
               });
           }
         }, 
@@ -318,7 +317,6 @@
       if (event.webkitCompassHeading !== undefined) {
         heading = event.webkitCompassHeading;
       } else if (event.alpha !== null) {
-        // Normalisasi alpha
         heading = 360 - event.alpha; 
       } else {
         return;
@@ -343,12 +341,10 @@
       isMagicMode = true;
       if (navigator.vibrate) navigator.vibrate(50); 
       
-      // Fix kalkulasi spin: putar 5 kali ke kiri (-1800) baru berhenti di target
       let targetRotation = secretTarget;
       let currentBase = Math.floor(currentRotation / 360) * 360;
       let finalRotation = currentBase + targetRotation - 1800;
 
-      // Pastikan jarak putarnya kerasa (gak cuma geser dikit)
       if (currentRotation - finalRotation < 1800) {
         finalRotation -= 360;
       }
@@ -372,7 +368,7 @@
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
-          isMagicMode = false; // Reset balik biar sensor gyro nyala lagi setelah trik
+          isMagicMode = false;
           secretTarget = null;
         }
       }
