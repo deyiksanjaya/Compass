@@ -48,7 +48,7 @@
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Overlay Kalibrasi (Hide/Show, bukan Remove) -->
+  <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="startAppManual()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -202,8 +202,8 @@
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
         if(el) {
-           // BUG FIX: Counter-rotation harusnya negatif dari (heading + label) biar gak kebalik
-           el.style.transform = `translate(-50%, -50%) rotate(${-(currentHeading + label.deg)}deg)`;
+           // Rumus yang bener biar huruf tetep tegak lurus
+           el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
         }
       });
 
@@ -290,7 +290,6 @@
     function showOverlay() {
       if(overlay) {
         overlay.style.display = 'flex';
-        // Pake set timeout dikit biar transisi opacitynya jalan mulus
         setTimeout(() => { if(overlay) overlay.style.opacity = '1'; }, 10);
       }
     }
@@ -335,7 +334,6 @@
         return;
       }
       
-      // BUG FIX: Hapus watch lama kalau ada biar ngga race condition
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
