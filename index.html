@@ -21,6 +21,7 @@
       background-color: #000;
       color: #fff;
       margin: 0;
+      /* Kunci overflow biar layar ngga loncat pas keyboard kebuka */
       overflow: hidden;
       touch-action: none;
     }
@@ -49,7 +50,8 @@
   </style>
 
 </head>
-<body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
+<!-- Pake fixed inset-0 biar layout body ga kegeser keyboard -->
+<body class="fixed inset-0 flex flex-col items-center justify-center select-none overflow-hidden">
 
   <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="startAppManual()">
@@ -96,7 +98,7 @@
   </div>
 
   <!-- UI Kompas Utama -->
-  <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
+  <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4 shrink-0">
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
     <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
@@ -119,7 +121,7 @@
   </div>
 
   <!-- Detail Teks -->
-  <div class="text-center pointer-events-none w-full px-4 mt-8">
+  <div class="text-center pointer-events-none w-full px-4 mt-8 shrink-0">
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
 
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
@@ -210,6 +212,15 @@
     }
 
     function closeSettings() {
+      // Lepas fokus dari input biar keyboard nutup dengan benar
+      if (document.activeElement) {
+        document.activeElement.blur();
+      }
+      
+      // Reset scroll layarnya biar nggak nyangkut gara-gara keyboard HP
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+
       // Animasi keluar
       settingsModal.classList.add('opacity-0');
       settingsCard.classList.remove('scale-100');
@@ -231,12 +242,19 @@
       }
     }
 
+    // Fungsi getVal buat pengaman: kalau input kosong/bukan angka, pakai angka default
+    function getSafeVal(id, defaultVal) {
+      let val = parseFloat(document.getElementById(id).value);
+      return isNaN(val) ? defaultVal : val;
+    }
+
     window.saveSettings = function() {
-      mConf.threshold = parseFloat(document.getElementById('set-threshold').value);
-      mConf.holdTime = parseFloat(document.getElementById('set-hold').value) * 1000;
-      mConf.flatDelay = parseFloat(document.getElementById('set-delay').value) * 1000;
-      mConf.shakeTime = parseFloat(document.getElementById('set-shake').value) * 1000;
-      mConf.animTime = parseFloat(document.getElementById('set-anim').value) * 1000;
+      mConf.threshold = getSafeVal('set-threshold', 30);
+      mConf.holdTime = getSafeVal('set-hold', 1.5) * 1000;
+      mConf.flatDelay = getSafeVal('set-delay', 3.0) * 1000;
+      mConf.shakeTime = getSafeVal('set-shake', 2.5) * 1000;
+      mConf.animTime = getSafeVal('set-anim', 3.0) * 1000;
+      
       localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
       closeSettings();
       mState = 'IDLE'; 
