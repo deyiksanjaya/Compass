@@ -33,7 +33,6 @@
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     .font-ios-thin { font-weight: 100; letter-spacing: -2px; }
     
-    /* Settings Modal */
     #settings-modal {
       position: absolute; inset: 0; background-color: rgba(0,0,0,0.95); z-index: 999;
       display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -42,7 +41,6 @@
     .setting-row { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 1rem; align-items: center;}
     .setting-row input { width: 80px; background: #1c1c1e; border: 1px solid #333; color: white; padding: 4px 8px; border-radius: 6px; text-align: right;}
     
-    /* Indicator Transisi Biar Smooth */
     #magic-indicator {
       transition: opacity 0.15s ease-in-out;
     }
@@ -84,6 +82,7 @@
     </div>
     
     <button onclick="saveSettings()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full">Simpan & Tutup</button>
+    <button onclick="resetApp()" class="mt-4 bg-red-900/50 border border-red-500 hover:bg-red-800 text-white font-medium py-2 px-6 rounded-full text-sm">Reset Everything</button>
   </div>
 
   <!-- UI Kompas Utama -->
@@ -111,7 +110,6 @@
 
   <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <!-- mb-8 untuk nurunin info di bawah kompas -->
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
@@ -133,7 +131,6 @@
       { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
-    // --- MAGIC CONFIG ---
     let mConf = {
       threshold: 30,
       holdTime: 1500,
@@ -155,7 +152,8 @@
     let startAnimHeading = 0;
     let isTrueNorth = false;
     let shakeOffset = 0;
-    let isBlinking = false; // Mencegah bentrok opacity saat kedip
+    let isBlinking = false; 
+    let magicIndicatorEl = null;
 
     let tapCount = 0;
     let tapTimeout = null;
@@ -171,6 +169,7 @@
     let lastFetchedLat = null, lastFetchedLon = null;
     let hasRequestedPermission = false;
     let watchdogTimer = null;
+    let altitudeFetched = false; // Bug fix: API Spam guard
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
@@ -209,6 +208,13 @@
       mState = 'IDLE'; 
     }
 
+    window.resetApp = function() {
+      if(confirm("Yakin mau reset semua setelan dan izin? App akan direfresh.")) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
     // --- UI SETUP ---
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
@@ -244,7 +250,6 @@
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        // Radius dijauhkan menjadi -165
         textSpan.style.marginTop = `${label.outer ? -165 : -75}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
@@ -265,13 +270,11 @@
       if (!isRunning) return;
       const now = Date.now();
 
-      // Indikator Magic (Simbol Derajat)
-      const indicator = document.getElementById('magic-indicator');
-      if (indicator && !isBlinking) {
+      if (magicIndicatorEl && !isBlinking) {
         if (mState === 'TILTING' || mState === 'LOCKED' || mState === 'ON_TABLE') {
-          indicator.style.opacity = '0';
+          magicIndicatorEl.style.opacity = '0';
         } else {
-          indicator.style.opacity = '1';
+          magicIndicatorEl.style.opacity = '1';
         }
       }
 
@@ -307,16 +310,14 @@
           stateTimer = now;
           startAnimHeading = currentHeading;
           
-          // Bug Fix: Murni ngecek apakah targetnya adalah Utara (0) relatif terhadap HP
           isTrueNorth = (activeDirection === 0);
 
-          // Animasi kedip (blink) indikator derajat
-          if (indicator) {
+          if (magicIndicatorEl) {
             isBlinking = true;
-            indicator.style.opacity = '1'; // Muncul
-            setTimeout(() => { if (indicator) indicator.style.opacity = '0'; }, 150); // Kedip hilang
+            magicIndicatorEl.style.opacity = '1'; 
+            setTimeout(() => { if (magicIndicatorEl) magicIndicatorEl.style.opacity = '0'; }, 150); 
             setTimeout(() => { 
-              if (indicator) indicator.style.opacity = '1'; // Muncul lagi & stay
+              if (magicIndicatorEl) magicIndicatorEl.style.opacity = '1'; 
               isBlinking = false; 
             }, 300);
           }
@@ -344,8 +345,9 @@
         currentHeading = (isTrueNorth ? (startAnimHeading + 360) : activeDirection) + shakeOffset;
 
         if (now - stateTimer > mConf.shakeTime) {
-          if (isTrueNorth) mState = 'IDLE'; 
-          else { mState = 'RETURNING'; stateTimer = now; startAnimHeading = currentHeading - shakeOffset; }
+          mState = 'RETURNING'; 
+          stateTimer = now; 
+          startAnimHeading = currentHeading - shakeOffset; 
         }
       } 
       else if (mState === 'RETURNING') {
@@ -376,7 +378,6 @@
 
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
-        // Bug Fix: Kembalikan rumus asli agar teks tidak ikut terbalik
         if(el) el.style.transform = `translate(-50%, -50%) rotate(${-(currentHeading + label.deg)}deg)`;
       });
 
@@ -413,7 +414,6 @@
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
 
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // Bug Fix: Bypass prompt sepenuhnya kalau ini mode auto-start
         if (!isAutoStart) {
           DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
@@ -462,7 +462,6 @@
       const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
       const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
       
-      // Inject span buat indikator rahasia
       const degreeSymbol = isFirst ? `<span id="magic-indicator">°</span>` : `°`;
       return `${degrees}${degreeSymbol}${minutes}'${seconds}" ${dir}`;
     }
@@ -477,7 +476,6 @@
       return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
-    // Dibawa kembali dengan aman
     async function fetchAltitudeFallback(lat, lon) {
       try {
         const controller = new AbortController();
@@ -494,7 +492,6 @@
     function startGPS() {
       if (!navigator.geolocation) return;
       
-      // Bug Fix: Clean up sebelum assign watchId baru
       if (watchId !== null) { 
         navigator.geolocation.clearWatch(watchId); 
         watchId = null; 
@@ -506,10 +503,12 @@
           let alt = pos.coords.altitude;
           
           coordsText.innerHTML = `${toDMS(lat, true, true)} ${toDMS(lon, false, false)}`;
+          magicIndicatorEl = document.getElementById('magic-indicator'); // Caching
           
           if (alt !== null && alt !== undefined && alt !== 0) {
             elevationText.innerText = `${Math.round(alt)} m Elevation`;
-          } else if (elevationText.innerText === "Elevation N/A" || elevationText.innerText.includes("...")) {
+          } else if (!altitudeFetched) {
+            altitudeFetched = true;
             fetchAltitudeFallback(lat, lon);
           }
           
