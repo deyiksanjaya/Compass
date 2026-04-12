@@ -24,26 +24,23 @@
       overflow: hidden;
       touch-action: none;
     }
-
     #calibration-overlay {
-      position: absolute;
-      inset: 0;
-      background-color: #000;
-      z-index: 100;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: opacity 0.3s;
+      position: absolute; inset: 0; background-color: #000; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: opacity 0.3s;
     }
-
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
-
-    .font-ios-thin {
-      font-weight: 100;
-      letter-spacing: -2px;
+    .font-ios-thin { font-weight: 100; letter-spacing: -2px; }
+    
+    /* Settings Modal */
+    #settings-modal {
+      position: absolute; inset: 0; background-color: rgba(0,0,0,0.95); z-index: 999;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 2rem;
     }
+    .setting-row { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 1rem; align-items: center;}
+    .setting-row input { width: 80px; background: #1c1c1e; border: 1px solid #333; color: white; padding: 4px 8px; border-radius: 6px; text-align: right;}
   </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
@@ -56,12 +53,38 @@
     </div>
   </div>
 
+  <!-- Settings Modal Rahasia -->
+  <div id="settings-modal">
+    <h2 class="text-2xl font-semibold mb-6 text-white">Magic Settings</h2>
+    
+    <div class="setting-row">
+      <label>Tilt Threshold (°)</label>
+      <input type="number" id="set-threshold" value="30">
+    </div>
+    <div class="setting-row">
+      <label>Hold Tilt (detik)</label>
+      <input type="number" step="0.1" id="set-hold" value="1.5">
+    </div>
+    <div class="setting-row">
+      <label>Delay Meja (detik)</label>
+      <input type="number" step="0.1" id="set-delay" value="3.0">
+    </div>
+    <div class="setting-row">
+      <label>Durasi Shaking (detik)</label>
+      <input type="number" step="0.1" id="set-shake" value="2.5">
+    </div>
+    <div class="setting-row">
+      <label>Animasi Muter (detik)</label>
+      <input type="number" step="0.1" id="set-anim" value="3.0">
+    </div>
+    
+    <button onclick="saveSettings()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full">Simpan & Tutup</button>
+  </div>
+
   <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
-    <!-- GARIS PUTIH TENGAH -->
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
-    <!-- Cincin Kompas -->
     <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
       <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
@@ -85,10 +108,11 @@
   <div class="text-center pointer-events-none w-full px-4 mt-8">
     <h1 id="headingText" class="font-ios-thin leading-none mb-3" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
-    <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white">
+    <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
-      <p id="elevationText">Elevation N/A</p>
+      <!-- Tap elevationText 5x untuk buka setting -->
+      <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
     </div>
   </div>
 
@@ -104,22 +128,51 @@
       { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
+    // --- MAGIC CONFIG ---
+    let mConf = {
+      threshold: 30,      // Kemiringan minimal
+      holdTime: 1500,     // Harus tahan berapa lama (ms)
+      flatDelay: 3000,    // Nunggu di meja sebelum jalan (ms)
+      shakeTime: 2500,    // Durasi goyang (ms)
+      animTime: 3000      // Durasi snap/spin (ms)
+    };
+
+    // Load custom settings
+    try {
+      const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
+      if(saved) mConf = {...mConf, ...saved};
+    } catch(e){}
+
+    // Magic State Machine
+    let mState = 'IDLE'; 
+    // IDLE -> TILTING -> LOCKED -> WAITING_FLAT -> ON_TABLE -> ANIMATING -> SHAKING -> RETURNING -> IDLE
+    
+    let rawBeta = 0, rawGamma = 0;
+    let tiltStart = 0;
+    let activeDirection = null; // 0 (Atas), 90 (Kiri), 180 (Bawah), 270 (Kanan)
+    let stateTimer = 0;
+    let startAnimHeading = 0;
+    let isTrueNorth = false;
+    let shakeOffset = 0;
+
+    // Secret Setting Trigger
+    let tapCount = 0;
+    let tapTimeout = null;
+
+    // Engine State
     let targetHeading = 0, currentHeading = 0;
     let targetTiltX = 0, currentTiltX = 0;
     let targetTiltY = 0, currentTiltY = 0;
-    
     const HEADING_SMOOTHING = 0.35; 
     const TILT_SMOOTHING = 0.15;
 
     let isRunning = false;
     let watchId = null;
-    let lastFetchedLat = null;
-    let lastFetchedLon = null;
+    let lastFetchedLat = null, lastFetchedLon = null;
     let hasRequestedPermission = false;
-    
-    let lastOrientationTime = 0;
     let watchdogTimer = null;
 
+    // Elements
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
@@ -128,19 +181,44 @@
     const cityText = document.getElementById('cityText');
     const elevationText = document.getElementById('elevationText');
     const overlay = document.getElementById('calibration-overlay');
+    const settingsModal = document.getElementById('settings-modal');
+
+    // --- SETTINGS UI ---
+    function handleElevationTap() {
+      tapCount++;
+      clearTimeout(tapTimeout);
+      tapTimeout = setTimeout(() => tapCount = 0, 1000);
+      if(tapCount >= 5) {
+        document.getElementById('set-threshold').value = mConf.threshold;
+        document.getElementById('set-hold').value = mConf.holdTime / 1000;
+        document.getElementById('set-delay').value = mConf.flatDelay / 1000;
+        document.getElementById('set-shake').value = mConf.shakeTime / 1000;
+        document.getElementById('set-anim').value = mConf.animTime / 1000;
+        settingsModal.style.display = 'flex';
+        tapCount = 0;
+      }
+    }
+
+    window.saveSettings = function() {
+      mConf.threshold = parseFloat(document.getElementById('set-threshold').value);
+      mConf.holdTime = parseFloat(document.getElementById('set-hold').value) * 1000;
+      mConf.flatDelay = parseFloat(document.getElementById('set-delay').value) * 1000;
+      mConf.shakeTime = parseFloat(document.getElementById('set-shake').value) * 1000;
+      mConf.animTime = parseFloat(document.getElementById('set-anim').value) * 1000;
+      localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
+      settingsModal.style.display = 'none';
+      mState = 'IDLE'; // Reset state
+    }
 
     // --- UI SETUP ---
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
-      const cx = 170, cy = 170;
-      
       ctx.clearRect(0, 0, 340, 340);
       ctx.strokeStyle = '#ffffff';
-      
       for (let i = 0; i < 360; i += 2) {
         ctx.save();
-        ctx.translate(cx, cy);
+        ctx.translate(170, 170);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
         ctx.lineWidth = (i % 30 === 0) ? 2.5 : 1;
@@ -149,9 +227,8 @@
         ctx.stroke();
         ctx.restore();
       }
-
       ctx.save();
-      ctx.translate(cx, cy);
+      ctx.translate(170, 170);
       ctx.fillStyle = '#ff453a';
       ctx.beginPath();
       ctx.moveTo(0, -145);
@@ -166,14 +243,11 @@
         const container = document.createElement('div');
         container.className = 'label-container';
         container.style.transform = `rotate(${label.deg}deg)`;
-
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        const radiusDist = label.outer ? -154 : -75; 
-        textSpan.style.marginTop = `${radiusDist}px`; 
+        textSpan.style.marginTop = `${label.outer ? -154 : -75}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
-        
         container.appendChild(textSpan);
         labelsContainer.appendChild(container);
       });
@@ -184,27 +258,135 @@
       return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
-    // --- MAIN RENDER LOOP ---
+    // Easing helper
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+    // --- MAIN RENDER & MAGIC MACHINE ---
     function renderLoop() {
       if (!isRunning) return;
+      const now = Date.now();
 
-      let diffHeading = targetHeading - currentHeading;
-      while (diffHeading < -180) diffHeading += 360;
-      while (diffHeading > 180) diffHeading -= 360;
-      currentHeading += diffHeading * HEADING_SMOOTHING;
+      // --- MAGIC STATE MACHINE ---
+      let isOverridingHeading = false;
+
+      // 1. Cek Flat (Meja)
+      let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
+
+      if (mState === 'IDLE') {
+        // Cek input gyro
+        if (rawBeta > mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       // Miring ke Atas (Top Edge Down) -> Nunjuk Atas (0)
+        else if (rawBeta < -mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } // Miring Bawah -> Nunjuk Bawah (180)
+        else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } // Miring Kanan -> Nunjuk Kanan (270 di Dial)
+        else if (rawGamma < -mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } // Miring Kiri -> Nunjuk Kiri (90 di Dial)
+
+      } else if (mState === 'TILTING') {
+        // Harus nahan posisi
+        let match = false;
+        if (activeDirection === 0 && rawBeta > mConf.threshold) match = true;
+        else if (activeDirection === 180 && rawBeta < -mConf.threshold) match = true;
+        else if (activeDirection === 270 && rawGamma > mConf.threshold) match = true;
+        else if (activeDirection === 90 && rawGamma < -mConf.threshold) match = true;
+
+        if (!match) {
+          mState = 'IDLE'; // Gagal nahan
+        } else if (now - tiltStart > mConf.holdTime) {
+          // Input Sukses!
+          mState = 'LOCKED';
+          if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        }
+
+      } else if (mState === 'LOCKED') {
+        // Nunggu ditaruh di meja
+        if (isFlat) {
+          mState = 'ON_TABLE';
+          stateTimer = now;
+        }
+
+      } else if (mState === 'ON_TABLE') {
+        // Hitung mundur di atas meja
+        if (!isFlat) mState = 'LOCKED'; // Diambil lagi sebelum selesai
+        else if (now - stateTimer > mConf.flatDelay) {
+          mState = 'ANIMATING';
+          stateTimer = now;
+          startAnimHeading = currentHeading;
+          
+          // Cek apakah target ternyata udah utara asli (+- 15 derajat)
+          let diffToTarget = Math.abs((targetHeading % 360) - activeDirection);
+          if (diffToTarget > 180) diffToTarget = 360 - diffToTarget;
+          
+          isTrueNorth = (diffToTarget <= 15);
+        }
+
+      } else if (mState === 'ANIMATING') {
+        isOverridingHeading = true;
+        let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
+        let ease = easeInOutCubic(progress);
+
+        if (isTrueNorth) {
+          // Spin 360 kalo udah di utara
+          currentHeading = startAnimHeading + (360 * ease);
+        } else {
+          // Snap ke target
+          let diff = activeDirection - (startAnimHeading % 360);
+          if (diff < -180) diff += 360;
+          if (diff > 180) diff -= 360;
+          currentHeading = startAnimHeading + (diff * ease);
+        }
+
+        if (progress >= 1) {
+          mState = 'SHAKING';
+          stateTimer = now;
+        }
+
+      } else if (mState === 'SHAKING') {
+        isOverridingHeading = true;
+        shakeOffset = Math.sin(now / 15) * 1.5; // Getar
+        currentHeading = (isTrueNorth ? (startAnimHeading + 360) : activeDirection) + shakeOffset;
+
+        if (now - stateTimer > mConf.shakeTime) {
+          if (isTrueNorth) {
+             mState = 'IDLE'; // Selesai
+          } else {
+             mState = 'RETURNING';
+             stateTimer = now;
+             startAnimHeading = currentHeading - shakeOffset;
+          }
+        }
+
+      } else if (mState === 'RETURNING') {
+        isOverridingHeading = true;
+        let progress = Math.min((now - stateTimer) / (mConf.animTime * 1.5), 1); // Return lebih lambat dikit biar natural
+        let ease = easeInOutCubic(progress);
+
+        let diff = targetHeading - startAnimHeading;
+        while (diff < -180) diff += 360;
+        while (diff > 180) diff -= 360;
+        
+        currentHeading = startAnimHeading + (diff * ease);
+
+        if (progress >= 1) {
+          mState = 'IDLE';
+        }
+      }
+
+      // --- SENSOR UPDATE (Kalau gak dioverride Magic) ---
+      if (!isOverridingHeading) {
+        let diffHeading = targetHeading - currentHeading;
+        while (diffHeading < -180) diffHeading += 360;
+        while (diffHeading > 180) diffHeading -= 360;
+        currentHeading += diffHeading * HEADING_SMOOTHING;
+      }
 
       currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
       currentTiltY += (targetTiltY - currentTiltY) * TILT_SMOOTHING;
 
+      // Update DOM
       dial.style.transform = `rotate(${-currentHeading}deg)`;
       levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
 
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
-        if(el) {
-           // Rumus yang bener biar huruf tetep tegak lurus
-           el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
-        }
+        if(el) el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
       });
 
       let displayHeading = Math.round((currentHeading % 360 + 360) % 360);
@@ -213,15 +395,11 @@
       requestAnimationFrame(renderLoop);
     }
 
-    // --- SENSOR LOGIC ---
+    // --- SENSOR LISTENER ---
     function resetWatchdog() {
-      lastOrientationTime = Date.now();
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
-        if (hasRequestedPermission && document.visibilityState === 'visible') {
-          console.warn("Sensor freeze terdeteksi (> 3 detik). Mencoba re-attach...");
-          attachOrientationListener();
-        }
+        if (hasRequestedPermission && document.visibilityState === 'visible') attachOrientationListener();
       }, 3000);
     }
 
@@ -229,15 +407,14 @@
       if (!event) return;
       resetWatchdog();
 
-      let beta = event.beta || 0; 
-      let gamma = event.gamma || 0; 
-      targetTiltX = Math.max(-55, Math.min(55, gamma * 0.6));
-      targetTiltY = Math.max(-55, Math.min(55, beta * 0.6));
+      rawBeta = event.beta || 0; 
+      rawGamma = event.gamma || 0; 
+
+      targetTiltX = Math.max(-55, Math.min(55, rawGamma * 0.6));
+      targetTiltY = Math.max(-55, Math.min(55, rawBeta * 0.6));
 
       let heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
-      if (heading !== null) {
-        targetHeading = heading;
-      }
+      if (heading !== null) targetHeading = heading;
     }
 
     function attachOrientationListener(isAutoStart = false) {
@@ -255,21 +432,15 @@
                 startEngine();
               } else {
                 if(!isAutoStart) alert("Akses sensor ditolak. Restart app ya.");
-                showOverlay();
+                document.getElementById('calibration-overlay').style.display = 'flex';
               }
-            }).catch(e => {
-              console.warn("Auto permission request failed, needs user gesture", e);
-              showOverlay(); 
-            });
+            }).catch(() => { document.getElementById('calibration-overlay').style.display = 'flex'; });
         }
       } else {
         localStorage.setItem('compassPermissionGranted', '1');
         hasRequestedPermission = true;
-        if ('ondeviceorientationabsolute' in window) {
-          window.addEventListener('deviceorientationabsolute', handleOrientation);
-        } else {
-          window.addEventListener('deviceorientation', handleOrientation);
-        }
+        if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', handleOrientation);
+        else window.addEventListener('deviceorientation', handleOrientation);
         startEngine();
       }
     }
@@ -287,102 +458,27 @@
       resetWatchdog();
     }
 
-    function showOverlay() {
-      if(overlay) {
-        overlay.style.display = 'flex';
-        setTimeout(() => { if(overlay) overlay.style.opacity = '1'; }, 10);
-      }
-    }
-
-    // --- LOCATION LOGIC ---
-    function toDMS(coord, isLat) {
-      const absolute = Math.abs(coord);
-      const degrees = Math.floor(absolute);
-      const minutesNotTruncated = (absolute - degrees) * 60;
-      const minutes = Math.floor(minutesNotTruncated);
-      const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
-      const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
-      return `${degrees}°${minutes}'${seconds}" ${dir}`;
-    }
-
-    function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3; 
-      const p1 = lat1 * Math.PI/180;
-      const p2 = lat2 * Math.PI/180;
-      const dp = (lat2-lat1) * Math.PI/180;
-      const dl = (lon2-lon1) * Math.PI/180;
-      const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
-      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-    }
-
-    async function fetchAltitudeFallback(lat, lon) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        const data = await res.json();
-        if (data && data.results && data.results[0]) {
-          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
-        }
-      } catch (e) {}
-    }
-
+    // --- LOKASI ---
     function startGPS() {
-      if (!navigator.geolocation) {
-        cityText.innerText = "GPS tidak didukung";
-        return;
-      }
-      
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
+      if (!navigator.geolocation) return;
+      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
 
       watchId = navigator.geolocation.watchPosition(
         pos => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          let alt = pos.coords.altitude;
+          const lat = pos.coords.latitude; const lon = pos.coords.longitude;
+          coordsText.innerText = `${Math.floor(Math.abs(lat))}°${Math.floor((Math.abs(lat)%1)*60)}'${Math.floor(((Math.abs(lat)%1)*60%1)*60)}" ${lat>=0?'N':'S'} ${Math.floor(Math.abs(lon))}°${Math.floor((Math.abs(lon)%1)*60)}'${Math.floor(((Math.abs(lon)%1)*60%1)*60)}" ${lon>=0?'E':'W'}`;
           
-          coordsText.innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
+          if (pos.coords.altitude) elevationText.innerText = `${Math.round(pos.coords.altitude)} m Elevation`;
           
-          if (alt !== null && alt !== undefined && alt !== 0) {
-             elevationText.innerText = `${Math.round(alt)} m Elevation`;
-          } else if (elevationText.innerText === "Elevation N/A") {
-             fetchAltitudeFallback(lat, lon);
-          }
-
-          let shouldFetchCity = false;
-          if (lastFetchedLat === null) {
-            shouldFetchCity = true;
-          } else {
-            if (getDistance(lastFetchedLat, lastFetchedLon, lat, lon) > 50) shouldFetchCity = true;
-          }
-
-          if (shouldFetchCity) {
+          if (!lastFetchedLat) {
             lastFetchedLat = lat;
-            lastFetchedLon = lon;
-            
-            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-              headers: { 
-                'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8',
-                'User-Agent': 'NativeCompassClone/1.0'
-              }
-            })
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
             .then(res => res.json())
-            .then(data => {
-              if (data.address) {
-                const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
-                cityText.innerText = city;
-              }
-            }).catch(() => {
-              if(cityText.innerText === "Mencari lokasi...") cityText.innerText = "Area Lokal";
-            });
+            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Lokasi Ditemukan"; })
+            .catch(() => {});
           }
         }, 
-        err => console.warn('GPS Error', err), 
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
@@ -391,37 +487,18 @@
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
       window.removeEventListener('deviceorientation', handleOrientation);
       clearTimeout(watchdogTimer);
-      
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
+      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
     }
 
-    // --- VISIBILITY / LIFECYCLE ---
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === 'visible') {
-        if (hasRequestedPermission) {
-          attachOrientationListener(true);
-        }
-      } else {
-        stopSensors();
-      }
+      if (document.visibilityState === 'visible' && hasRequestedPermission) attachOrientationListener(true);
+      else stopSensors();
     });
 
-    // --- INIT ---
-    window.startAppManual = function() {
-      attachOrientationListener(false);
-    }
+    window.startAppManual = function() { attachOrientationListener(false); }
+    if (localStorage.getItem('compassPermissionGranted')) { hasRequestedPermission = true; attachOrientationListener(true); }
 
-    if (localStorage.getItem('compassPermissionGranted')) {
-      hasRequestedPermission = true;
-      attachOrientationListener(true);
-    }
-
-    drawTicks();
-    initLabels();
-
+    drawTicks(); initLabels();
   </script>
 </body>
 </html>
