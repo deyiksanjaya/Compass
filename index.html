@@ -48,8 +48,8 @@
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Overlay Kalibrasi -->
-  <div id="calibration-overlay" onclick="startApp()">
+  <!-- Overlay Kalibrasi (Hide/Show, bukan Remove) -->
+  <div id="calibration-overlay" onclick="startAppManual()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       <p class="text-lg font-medium text-gray-300 tracking-wide">Ketuk untuk mulai</p>
@@ -104,7 +104,6 @@
       { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
-    // Engine State (Low-Pass Filter)
     let targetHeading = 0, currentHeading = 0;
     let targetTiltX = 0, currentTiltX = 0;
     let targetTiltY = 0, currentTiltY = 0;
@@ -112,18 +111,15 @@
     const HEADING_SMOOTHING = 0.35; 
     const TILT_SMOOTHING = 0.15;
 
-    // App State
     let isRunning = false;
     let watchId = null;
     let lastFetchedLat = null;
     let lastFetchedLon = null;
     let hasRequestedPermission = false;
     
-    // Watchdog Timer
     let lastOrientationTime = 0;
     let watchdogTimer = null;
 
-    // Elements
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
@@ -131,6 +127,7 @@
     const coordsText = document.getElementById('coordsText');
     const cityText = document.getElementById('cityText');
     const elevationText = document.getElementById('elevationText');
+    const overlay = document.getElementById('calibration-overlay');
 
     // --- UI SETUP ---
     function drawTicks() {
@@ -187,28 +184,26 @@
       return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
-    // --- MAIN RENDER LOOP (60fps) ---
+    // --- MAIN RENDER LOOP ---
     function renderLoop() {
       if (!isRunning) return;
 
-      // Lerp Heading
       let diffHeading = targetHeading - currentHeading;
       while (diffHeading < -180) diffHeading += 360;
       while (diffHeading > 180) diffHeading -= 360;
       currentHeading += diffHeading * HEADING_SMOOTHING;
 
-      // Lerp Tilt (Waterpas)
       currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
       currentTiltY += (targetTiltY - currentTiltY) * TILT_SMOOTHING;
 
-      // Update DOM
       dial.style.transform = `rotate(${-currentHeading}deg)`;
       levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
 
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
         if(el) {
-           el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
+           // BUG FIX: Counter-rotation harusnya negatif dari (heading + label) biar gak kebalik
+           el.style.transform = `translate(-50%, -50%) rotate(${-(currentHeading + label.deg)}deg)`;
         }
       });
 
@@ -223,7 +218,6 @@
       lastOrientationTime = Date.now();
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
-        // Kalau dokumen lagi aktif dan izin udah ada, coba paksa attach lagi
         if (hasRequestedPermission && document.visibilityState === 'visible') {
           console.warn("Sensor freeze terdeteksi (> 3 detik). Mencoba re-attach...");
           attachOrientationListener();
@@ -246,29 +240,58 @@
       }
     }
 
-    function attachOrientationListener() {
+    function attachOrientationListener(isAutoStart = false) {
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
 
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        if (hasRequestedPermission) {
+        if (!isAutoStart || hasRequestedPermission) {
           DeviceOrientationEvent.requestPermission()
             .then(permissionState => {
               if (permissionState === 'granted') {
+                localStorage.setItem('compassPermissionGranted', '1');
                 window.addEventListener('deviceorientation', handleOrientation);
-                startGPS();
-                resetWatchdog();
+                hasRequestedPermission = true;
+                startEngine();
+              } else {
+                if(!isAutoStart) alert("Akses sensor ditolak. Restart app ya.");
+                showOverlay();
               }
-            }).catch(e => console.warn("Permission re-request failed", e));
+            }).catch(e => {
+              console.warn("Auto permission request failed, needs user gesture", e);
+              showOverlay(); 
+            });
         }
       } else {
+        localStorage.setItem('compassPermissionGranted', '1');
+        hasRequestedPermission = true;
         if ('ondeviceorientationabsolute' in window) {
           window.addEventListener('deviceorientationabsolute', handleOrientation);
         } else {
           window.addEventListener('deviceorientation', handleOrientation);
         }
-        startGPS();
-        resetWatchdog();
+        startEngine();
+      }
+    }
+
+    function startEngine() {
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 300);
+      }
+      if (!isRunning) {
+        isRunning = true;
+        requestAnimationFrame(renderLoop);
+      }
+      startGPS();
+      resetWatchdog();
+    }
+
+    function showOverlay() {
+      if(overlay) {
+        overlay.style.display = 'flex';
+        // Pake set timeout dikit biar transisi opacitynya jalan mulus
+        setTimeout(() => { if(overlay) overlay.style.opacity = '1'; }, 10);
       }
     }
 
@@ -312,7 +335,11 @@
         return;
       }
       
-      if (watchId !== null) return; // Mencegah dobel watchId
+      // BUG FIX: Hapus watch lama kalau ada biar ngga race condition
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
 
       watchId = navigator.geolocation.watchPosition(
         pos => {
@@ -377,11 +404,7 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === 'visible') {
         if (hasRequestedPermission) {
-          attachOrientationListener();
-          if (!isRunning) {
-            isRunning = true;
-            requestAnimationFrame(renderLoop);
-          }
+          attachOrientationListener(true);
         }
       } else {
         stopSensors();
@@ -389,17 +412,13 @@
     });
 
     // --- INIT ---
-    window.startApp = function() {
-      const overlay = document.getElementById('calibration-overlay');
-      if (overlay) {
-        overlay.style.opacity = '0';
-        setTimeout(() => overlay.remove(), 300);
-      }
+    window.startAppManual = function() {
+      attachOrientationListener(false);
+    }
 
+    if (localStorage.getItem('compassPermissionGranted')) {
       hasRequestedPermission = true;
-      isRunning = true;
-      requestAnimationFrame(renderLoop);
-      attachOrientationListener();
+      attachOrientationListener(true);
     }
 
     drawTicks();
