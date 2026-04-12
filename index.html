@@ -14,17 +14,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600&display=swap');
-    
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
       background-color: #000;
       color: #fff;
       margin: 0;
       overflow: hidden;
       touch-action: none;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
     }
 
     #calibration-overlay {
@@ -53,13 +49,19 @@
     .secret-zone { width: 100%; height: 100%; }
 
     #level-bubble {
-      transition: transform 0.1s linear;
+      transition: transform 0.05s linear;
+    }
+
+    /* Font sangat tipis untuk derajat */
+    .font-ios-thin {
+      font-weight: 100;
+      letter-spacing: -2px;
     }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Overlay Izin Sensor -->
+  <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="requestPermissions()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -67,7 +69,7 @@
     </div>
   </div>
 
-  <!-- Area Input Sulap -->
+  <!-- Area Input Magic -->
   <div id="secret-grid">
     <div class="secret-zone" onclick="setTarget(315)"></div>
     <div class="secret-zone" onclick="setTarget(0)"></div>
@@ -80,36 +82,42 @@
     <div class="secret-zone" onclick="setTarget(135)"></div>
   </div>
 
-  <!-- UI Kompas Utama -->
-  <div class="relative w-[340px] h-[340px] pointer-events-none mb-12 mt-4">
-    <!-- Garis putih statis diperpanjang, nyentuh batas dalem cincin (-100 dari radius tengah) -->
-    <div class="absolute top-[18px] left-1/2 -translate-x-1/2 w-[3px] h-[52px] bg-white z-20 rounded-sm"></div>
+  <!-- UI Kompas Utama (Ukuran 340x340) -->
+  <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
+    
+    <!-- GARIS PUTIH TENGAH -->
+    <div class="absolute top-[15px] left-1/2 -translate-x-1/2 w-[2.5px] h-[40px] bg-white z-20"></div>
 
+    <!-- Cincin Kompas -->
     <div id="dial" class="absolute inset-0 w-full h-full z-10">
       <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
-    <!-- Waterpas -->
+    <!-- Waterpas (Crosshair & Bulatan) -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
-      <div class="absolute w-[160px] h-[1px] bg-white opacity-20"></div>
-      <div class="absolute w-[1px] h-[160px] bg-white opacity-20"></div>
+      <!-- Crosshair dibikin lebih terang (opacity 30) -->
+      <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
+      <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
       
-      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#2c2c2e]/90 rounded-full flex items-center justify-center">
+      <!-- Bulatan abu dibikin lebih terang warnanya -->
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#3a3a3c]/90 rounded-full flex items-center justify-center shadow-inner">
         <div class="relative w-5 h-5">
-          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
-          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
+          <!-- Crosshair dalam dibikin lebih terang (opacity 70) -->
+          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
+          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Detail Teks Bawah -->
-  <div class="text-center pointer-events-none w-full px-4 mt-6">
-    <!-- Font derajat dibikin lebih tipis (font-thin) -->
-    <h1 id="headingText" class="text-[5.5rem] font-thin tracking-tight leading-none mb-6">0° N</h1>
-    <!-- Font info di bawah dibikin lebih tebel (font-medium) -->
-    <div class="space-y-2 text-[15px] font-medium tracking-wide text-gray-100">
+  <!-- Detail Teks -->
+  <div class="text-center pointer-events-none w-full px-4 mt-8">
+    <!-- mb-3 untuk ngerapetin jarak angka dengan koordinat -->
+    <h1 id="headingText" class="text-[6rem] font-ios-thin leading-none mb-3">0° N</h1>
+    
+    <!-- space-y-1 untuk ngerapetin antar baris info, text-white biar pure white -->
+    <div class="flex flex-col items-center justify-center space-y-1 text-[16px] font-medium tracking-wide text-white">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
       <p id="elevationText">Elevation N/A</p>
@@ -156,24 +164,26 @@
         ctx.beginPath();
         
         if (i % 30 === 0) {
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 2.5;
         } else {
           ctx.lineWidth = 1;
         }
-        ctx.moveTo(0, -120);
-        ctx.lineTo(0, -100);
+        
+        ctx.moveTo(0, -135);
+        ctx.lineTo(0, -115);
         ctx.stroke();
         
         ctx.restore();
       }
 
+      // Segitiga Merah dibikin lebih terang (iOS Dark Mode Red: #ff453a)
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.fillStyle = '#ff3b30';
+      ctx.fillStyle = '#ff453a';
       ctx.beginPath();
-      ctx.moveTo(0, -132);  
-      ctx.lineTo(-6, -122); 
-      ctx.lineTo(6, -122);  
+      ctx.moveTo(0, -145);
+      ctx.lineTo(-5, -137); 
+      ctx.lineTo(5, -137);  
       ctx.fill();
       ctx.restore();
     }
@@ -186,7 +196,8 @@
 
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        const radiusDist = label.outer ? -155 : -70; 
+        
+        const radiusDist = label.outer ? -154 : -75; 
         textSpan.style.marginTop = `${radiusDist}px`; 
         
         textSpan.innerText = label.text;
@@ -293,11 +304,6 @@
         }, 
         err => {
           console.warn('GPS Error', err);
-          if (err.code === 1) {
-            document.getElementById('cityText').innerText = "Izin GPS ditolak";
-          } else {
-            document.getElementById('cityText').innerText = "Sinyal GPS Lemah";
-          }
         }, 
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
@@ -307,8 +313,8 @@
       let beta = event.beta || 0; 
       let gamma = event.gamma || 0; 
       
-      let xMove = Math.max(-60, Math.min(60, gamma * 1.5));
-      let yMove = Math.max(-60, Math.min(60, beta * 1.5));
+      let xMove = Math.max(-55, Math.min(55, gamma * 1.2));
+      let yMove = Math.max(-55, Math.min(55, beta * 1.2));
       levelBubble.style.transform = `translate(calc(-50% + ${xMove}px), calc(-50% + ${yMove}px))`;
 
       if (isMagicMode) return;
