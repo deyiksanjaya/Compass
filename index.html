@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="id">
 <head>
   <meta charset="UTF-8">
@@ -51,7 +50,6 @@
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
   <!-- Overlay Kalibrasi -->
-
   <div id="calibration-overlay" onclick="startAppManual()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -60,7 +58,6 @@
   </div>
 
   <!-- Settings Modal Rahasia -->
-
   <div id="settings-modal">
     <h2 class="text-2xl font-semibold mb-6 text-white">Magic Settings</h2>
     <div class="setting-row">
@@ -88,45 +85,37 @@
   </div>
 
   <!-- UI Kompas Utama -->
-
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
-```
-<div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
-  <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
-  <div id="labelsContainer" class="absolute inset-0"></div>
-</div>
-
-<!-- Waterpas -->
-<div class="absolute inset-0 flex items-center justify-center z-0">
-  <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
-  <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
-  
-  <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-    <div class="relative w-5 h-5">
-      <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
-      <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
+    <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
+      <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
+      <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
-  </div>
-</div>
-```
 
+    <!-- Waterpas -->
+    <div class="absolute inset-0 flex items-center justify-center z-0">
+      <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
+      <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
+      
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner will-change-transform">
+        <div class="relative w-5 h-5">
+          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
+          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Detail Teks -->
-
   <div class="text-center pointer-events-none w-full px-4 mt-8">
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
 
-```
-<div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
-  <p id="coordsText">--°--'--" N --°--'--" E</p>
-  <p id="cityText">Mencari lokasi...</p>
-  <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
-</div>
-```
-
+    <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white pointer-events-auto">
+      <p id="coordsText">--°--'--" N --°--'--" E</p>
+      <p id="cityText">Mencari lokasi...</p>
+      <p id="elevationText" onclick="handleElevationTap()">Elevation N/A</p>
+    </div>
   </div>
 
   <script>
@@ -291,15 +280,15 @@
       if (mState === 'IDLE') {
         if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
         else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
-        else if (rawGamma > mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } 
-        else if (rawGamma < -mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } 
+        else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } 
+        else if (rawGamma < -mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } 
       } 
       else if (mState === 'TILTING') {
         let match = false;
         if (activeDirection === 0 && rawBeta < -mConf.threshold) match = true;
         else if (activeDirection === 180 && rawBeta > mConf.threshold) match = true;
-        else if (activeDirection === 90 && rawGamma > mConf.threshold) match = true;
-        else if (activeDirection === 270 && rawGamma < -mConf.threshold) match = true;
+        else if (activeDirection === 270 && rawGamma > mConf.threshold) match = true;
+        else if (activeDirection === 90 && rawGamma < -mConf.threshold) match = true;
 
         if (!match) mState = 'IDLE'; 
         else if (now - tiltStart > mConf.holdTime) {
@@ -409,14 +398,11 @@
       if (!event) return;
       resetWatchdog();
 
-      rawBeta = event.beta || 0;   // maju/mundur: negatif = atas layar naik, positif = atas layar turun
-      rawGamma = event.gamma || 0; // kiri/kanan: negatif = kiri naik, positif = kanan naik
+      rawBeta = event.beta || 0;
+      rawGamma = event.gamma || 0;
 
-      // FIX: Bubble waterpas mengikuti fisika — bubble menggelinding ke sisi yang LEBIH TINGGI
-      // Kalau kanan naik (gamma > 0), bubble gerak ke kanan (+X)
-      // Kalau atas layar naik (beta < 0), bubble gerak ke atas (-Y)
-      targetTiltX = Math.max(-55, Math.min(55,  rawGamma * 0.6));  // gamma+ = kanan naik → bubble ke kanan
-      targetTiltY = Math.max(-55, Math.min(55,  rawBeta  * 0.6));  // beta+  = atas turun → bubble ke bawah (sudah benar secara fisika)
+      targetTiltX = Math.max(-55, Math.min(55,  rawGamma * 0.6));
+      targetTiltY = Math.max(-55, Math.min(55,  rawBeta  * 0.6));
 
       let heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
       if (heading !== null) targetHeading = heading;
