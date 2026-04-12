@@ -2,20 +2,17 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <!-- PENTING: Meta tag buat Web App/PWA -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Compass">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#000000">
-  
   <title>Compass</title>
   
-  <!-- Icon buat di Home Screen (Opsional, Apple defaultnya bakal ambil screenshot webnya kalau gak ada) -->
   <link rel="apple-touch-icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Compass_icon_%28iOS%29.svg/512px-Compass_icon_%28iOS%29.svg.png">
-
   <script src="https://cdn.tailwindcss.com"></script>
+  
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     
@@ -26,7 +23,6 @@
       margin: 0;
       overflow: hidden;
       touch-action: none;
-      /* Tambahan padding buat aman dari notch iPhone */
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
@@ -43,22 +39,10 @@
       transition: opacity 0.5s;
     }
 
-    .compass-marker {
-      position: absolute;
-      top: -24px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      z-index: 10;
-    }
-    .marker-line { width: 2px; height: 12px; background-color: white; margin-bottom: 2px; }
-    .marker-triangle { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid #ff3b30; }
-
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
 
+    /* Secret grid nutupin layar buat input magic */
     #secret-grid {
       position: absolute;
       inset: 0;
@@ -68,11 +52,16 @@
       z-index: 50;
     }
     .secret-zone { width: 100%; height: 100%; }
+
+    /* Transisi mulus buat waterpas (bulatan abu) */
+    #level-bubble {
+      transition: transform 0.1s linear;
+    }
   </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Layar Kalibrasi (Akan disembunyikan otomatis jika sudah pernah diizinkan) -->
+  <!-- Overlay Izin Sensor -->
   <div id="calibration-overlay" onclick="requestPermissions()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -80,6 +69,7 @@
     </div>
   </div>
 
+  <!-- Area Input Sulap -->
   <div id="secret-grid">
     <div class="secret-zone" onclick="setTarget(315)"></div>
     <div class="secret-zone" onclick="setTarget(0)"></div>
@@ -92,29 +82,38 @@
     <div class="secret-zone" onclick="setTarget(135)"></div>
   </div>
 
-  <div class="relative w-[300px] h-[300px] pointer-events-none mb-10 mt-10">
-    <div class="compass-marker">
-      <div class="marker-line"></div>
-      <div class="marker-triangle"></div>
-    </div>
+  <!-- UI Kompas Utama -->
+  <div class="relative w-[340px] h-[340px] pointer-events-none mb-12 mt-4">
+    
+    <!-- 1. Garis Putih Statis di Top Center -->
+    <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
-    <div id="dial" class="absolute inset-0 w-full h-full">
-      <canvas id="ticksCanvas" width="300" height="300" class="absolute inset-0"></canvas>
+    <!-- 2. Dial yang Muter (Isi Canvas Garis, Angka & Segitiga Merah) -->
+    <div id="dial" class="absolute inset-0 w-full h-full z-10">
+      <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
-    <div class="absolute inset-0 flex items-center justify-center">
-      <div class="w-24 h-24 bg-[#1c1c1e] rounded-full flex items-center justify-center shadow-inner">
-        <div class="relative w-6 h-6">
-          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-40"></div>
-          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-40"></div>
+    <!-- 3. Waterpas / Spirit Level -->
+    <div class="absolute inset-0 flex items-center justify-center z-0">
+      <!-- Crosshair Statis Besar -->
+      <div class="absolute w-[160px] h-[1px] bg-white opacity-20"></div>
+      <div class="absolute w-[1px] h-[160px] bg-white opacity-20"></div>
+      
+      <!-- Bulatan Abu Bergerak -->
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#2c2c2e]/90 rounded-full flex items-center justify-center">
+        <!-- Crosshair Kecil di dalam bulatan -->
+        <div class="relative w-5 h-5">
+          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
+          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <h1 id="headingText" class="text-[5rem] font-light tracking-tight leading-none mb-6">0° N</h1>
+  <!-- Detail Teks Bawah -->
+  <div class="text-center pointer-events-none w-full px-4 mt-6">
+    <h1 id="headingText" class="text-[5.5rem] font-light tracking-tight leading-none mb-6">0° N</h1>
     <div class="space-y-2 text-[15px] font-normal tracking-wide text-gray-100">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
@@ -123,13 +122,25 @@
   </div>
 
   <script>
+    // Data label: Angka di luar, Huruf di dalam
     const labels = [
-      { deg: 0, text: 'N', type: 'letter' }, { deg: 30, text: '30', type: 'number' },
-      { deg: 60, text: '60', type: 'number' }, { deg: 90, text: 'E', type: 'letter' },
-      { deg: 120, text: '120', type: 'number' }, { deg: 150, text: '150', type: 'number' },
-      { deg: 180, text: 'S', type: 'letter' }, { deg: 210, text: '210', type: 'number' },
-      { deg: 240, text: '240', type: 'number' }, { deg: 270, text: 'W', type: 'letter' },
-      { deg: 300, text: '300', type: 'number' }, { deg: 330, text: '330', type: 'number' }
+      { deg: 0, text: '0', type: 'number', outer: true },
+      { deg: 30, text: '30', type: 'number', outer: true },
+      { deg: 60, text: '60', type: 'number', outer: true },
+      { deg: 90, text: '90', type: 'number', outer: true },
+      { deg: 120, text: '120', type: 'number', outer: true },
+      { deg: 150, text: '150', type: 'number', outer: true },
+      { deg: 180, text: '180', type: 'number', outer: true },
+      { deg: 210, text: '210', type: 'number', outer: true },
+      { deg: 240, text: '240', type: 'number', outer: true },
+      { deg: 270, text: '270', type: 'number', outer: true },
+      { deg: 300, text: '300', type: 'number', outer: true },
+      { deg: 330, text: '330', type: 'number', outer: true },
+      
+      { deg: 0, text: 'N', type: 'letter', outer: false },
+      { deg: 90, text: 'E', type: 'letter', outer: false },
+      { deg: 180, text: 'S', type: 'letter', outer: false },
+      { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
     let currentRotation = 0; 
@@ -141,33 +152,47 @@
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
     const overlay = document.getElementById('calibration-overlay');
+    const levelBubble = document.getElementById('level-bubble');
 
-    // Cek apakah user udah pernah kasih permission sebelumnya
     const hasGivenPermission = localStorage.getItem('magicCompassPermission') === 'true';
 
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, 300, 300);
+      const cx = 170, cy = 170;
+      
+      ctx.clearRect(0, 0, 340, 340);
+      
+      // Gambar Garis-garis kompas
       ctx.strokeStyle = '#ffffff';
-
       for (let i = 0; i < 360; i += 2) {
         ctx.save();
-        ctx.translate(150, 150);
+        ctx.translate(cx, cy);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
         if (i % 30 === 0) {
           ctx.lineWidth = 2;
-          ctx.moveTo(0, -145);
-          ctx.lineTo(0, -125);
+          ctx.moveTo(0, -120);
+          ctx.lineTo(0, -100);
         } else {
           ctx.lineWidth = 1;
-          ctx.moveTo(0, -145);
-          ctx.lineTo(0, -135);
+          ctx.moveTo(0, -120);
+          ctx.lineTo(0, -110);
         }
         ctx.stroke();
         ctx.restore();
       }
+
+      // Gambar Segitiga Merah yang nempel persis nunjuk angka 0 (Utara)
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.fillStyle = '#ff3b30';
+      ctx.beginPath();
+      ctx.moveTo(0, -132);  // Titik ujung atas menunjuk angka 0
+      ctx.lineTo(-6, -122); // Bawah kiri
+      ctx.lineTo(6, -122);  // Bawah kanan
+      ctx.fill();
+      ctx.restore();
     }
 
     function initLabels() {
@@ -177,26 +202,34 @@
         container.style.transform = `rotate(${label.deg}deg)`;
 
         const textSpan = document.createElement('div');
-        textSpan.className = `label-text ${label.type === 'letter' ? 'text-2xl font-normal' : 'text-sm font-medium text-gray-300'}`;
+        // Setting gaya font. Huruf lebih gede, angka lebih kecil
+        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
+        
+        // Atur posisi radius: Angka jauh di luar (-155px), Huruf di dalam (-75px)
+        const radiusDist = label.outer ? -155 : -70; 
+        textSpan.style.marginTop = `${radiusDist}px`; 
+        
         textSpan.innerText = label.text;
-        textSpan.id = `label-${label.deg}`;
-        textSpan.style.marginTop = '-100px'; 
+        textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         
         container.appendChild(textSpan);
         labelsContainer.appendChild(container);
       });
     }
 
+    // Dibikin cuma 8 arah simpel: N, NE, E, SE, S, SW, W, NW
     function getDirection(degrees) {
-      const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-      return arr[Math.floor(((degrees + 11.25) % 360) / 22.5)];
+      const arr = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
     function updateCompassDisplay() {
       dial.style.transform = `rotate(${currentRotation}deg)`;
 
+      // Biar tulisan tetep tegak walau cincinnya muter
       labels.forEach(label => {
-        const el = document.getElementById(`label-${label.deg}`);
+        const id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
+        const el = document.getElementById(id);
         el.style.transform = `translate(-50%, -50%) rotate(${-(currentRotation + label.deg)}deg)`;
       });
 
@@ -220,9 +253,7 @@
       setTimeout(() => overlay.style.display = 'none', 500);
     }
 
-    // Fungsi utama untuk meminta izin (Dijalankan saat tap overlay atau auto jika sudah ada izin)
     function requestPermissions() {
-      // 1. Setup Gyroscope
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(permissionState => {
@@ -232,10 +263,8 @@
               hideOverlay();
               startGPS();
             }
-          })
-          .catch(console.error);
+          }).catch(console.error);
       } else {
-        // Untuk Android & non-iOS Safari
         window.addEventListener('deviceorientationabsolute', handleOrientation);
         window.addEventListener('deviceorientation', handleOrientation);
         localStorage.setItem('magicCompassPermission', 'true');
@@ -255,26 +284,30 @@
           document.getElementById('elevationText').innerText = `${Math.round(alt)} m Elevation`;
 
           if (!locationFetched) {
-            // Gunakan reverse geocoding open source
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
               .then(res => res.json())
               .then(data => {
                 const city = data.address.city || data.address.town || data.address.village || data.address.county || "Lokasi Ditemukan";
                 const state = data.address.state || "";
                 document.getElementById('cityText').innerText = `${city}${state ? ', ' + state : ''}`;
-              })
-              .catch(() => {
-                document.getElementById('cityText').innerText = "Area Lokal";
-              });
+              }).catch(() => {});
             locationFetched = true;
           }
-        }, err => {
-          console.warn('GPS Error', err);
-        }, { enableHighAccuracy: true });
+        }, err => {}, { enableHighAccuracy: true });
       }
     }
 
     function handleOrientation(event) {
+      // 1. Logika Waterpas (Tilt HP) - Terus jalan walau lagi mode magic!
+      let beta = event.beta || 0; 
+      let gamma = event.gamma || 0; 
+      
+      // Batasin gerak maksimal bulatan abu
+      let xMove = Math.max(-60, Math.min(60, gamma * 1.5));
+      let yMove = Math.max(-60, Math.min(60, beta * 1.5));
+      levelBubble.style.transform = `translate(calc(-50% + ${xMove}px), calc(-50% + ${yMove}px))`;
+
+      // 2. Logika Arah Kompas (Bakal beku kalau lagi ngerjain trik)
       if (isMagicMode) return;
 
       let heading = 0;
@@ -286,44 +319,37 @@
         return;
       }
 
-      // Smooth interpolasi sederhana biar jarum gak patah-patah banget
       let diff = (-heading) - currentRotation;
-      
-      // Handle the 360 degree wrap around so it doesn't spin backwards
       while (diff < -180) diff += 360;
       while (diff > 180) diff -= 360;
       
-      currentRotation += diff * 0.2; // 0.2 adalah faktor smoothing
+      currentRotation += diff * 0.2; 
       updateCompassDisplay();
     }
 
-    // --- Mekanik Rahasia ---
+    // --- Mekanik Rahasia Sulap ---
     window.setTarget = function(angle) {
       if (isMagicMode) return;
       secretTarget = angle;
-      if (navigator.vibrate) navigator.vibrate([10, 30, 10]); // Getar sedikit beda biar lu tau udah set target
+      if (navigator.vibrate) navigator.vibrate([10, 30, 10]); 
     }
 
     window.triggerSpin = function() {
       if (isMagicMode || secretTarget === null) return;
       isMagicMode = true;
-      if (navigator.vibrate) navigator.vibrate(50); // Getaran konfirmasi pas trik mulai
+      if (navigator.vibrate) navigator.vibrate(50); 
       
-      const spins = 1800; // 5 putaran penuh biar lebih dramatis
+      const spins = 1800; // Muter kenceng 5 putaran
       const currentModulo = currentRotation % 360;
       let normalizedCurrent = currentModulo < 0 ? 360 + currentModulo : currentModulo;
       
-      // Hitung jarak putaran terpendek ke target sebelum ditambah extra spin
       let diffToTarget = secretTarget - normalizedCurrent;
-      
       const startRotation = currentRotation;
-      // Tujuan akhir = Posisi sekarang + sisa beda derajat ke target + putaran dramatis
       const finalRotation = startRotation + diffToTarget - spins;
 
-      const duration = 5000; // 5 detik total
+      const duration = 5000; 
       let startTime = null;
 
-      // Easing function biar ngeremnya mulus banget kaya magnet nemu kutubnya
       function easeOutExpo(x) {
         return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
       }
@@ -340,24 +366,20 @@
           requestAnimationFrame(animate);
         } else {
           secretTarget = null;
-          // Disengaja tetep stay di isMagicMode = true, biar abis trick kompasnya ngunci
-          // Kalau mau direset balik ke sensor asli, tambahin logika buat batalin isMagicMode di sini.
         }
       }
 
       requestAnimationFrame(animate);
     }
 
-    // Init
+    // Inisiasi awal
     drawTicks();
     initLabels();
     updateCompassDisplay();
 
-    // Otomatis jalan kalau udah pernah kasih izin
+    // Auto start kalau udah pernah dapet izin (Biar nggak usah tap layar terus)
     if (hasGivenPermission) {
       hideOverlay();
-      
-      // Untuk iOS yang kadang butuh ditrigger lagi meski udah di localStorage
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(permissionState => {
@@ -365,7 +387,7 @@
                window.addEventListener('deviceorientation', handleOrientation);
                startGPS();
             } else {
-               overlay.style.display = 'flex'; // Munculin lagi kalau ternyata diblokir
+               overlay.style.display = 'flex';
                overlay.style.opacity = '1';
             }
           }).catch(() => {
