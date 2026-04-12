@@ -10,7 +10,6 @@
   <meta name="theme-color" content="#000000">
   <title>Compass</title>
   
-  <!-- Ubah ke file lokal icon-512.png -->
   <link rel="apple-touch-icon" href="icon-512.png">
   <link rel="icon" type="image/png" href="icon-512.png">
   
@@ -41,20 +40,6 @@
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
 
-    #secret-grid {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      z-index: 50;
-    }
-    .secret-zone { width: 100%; height: 100%; }
-
-    #level-bubble {
-      transition: transform 0.05s linear;
-    }
-
     .font-ios-thin {
       font-weight: 100;
       letter-spacing: -2px;
@@ -64,24 +49,11 @@
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
   <!-- Overlay Kalibrasi -->
-  <div id="calibration-overlay" onclick="requestPermissions()">
+  <div id="calibration-overlay" onclick="startApp()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       <p class="text-lg font-medium text-gray-300 tracking-wide">Ketuk untuk mulai</p>
     </div>
-  </div>
-
-  <!-- Area Input Magic -->
-  <div id="secret-grid">
-    <div class="secret-zone" onclick="setTarget(315)"></div>
-    <div class="secret-zone" onclick="setTarget(0)"></div>
-    <div class="secret-zone" onclick="setTarget(45)"></div>
-    <div class="secret-zone" onclick="setTarget(270)"></div>
-    <div class="secret-zone" onclick="triggerSpin()"></div>
-    <div class="secret-zone" onclick="setTarget(90)"></div>
-    <div class="secret-zone" onclick="setTarget(225)"></div>
-    <div class="secret-zone" onclick="setTarget(180)"></div>
-    <div class="secret-zone" onclick="setTarget(135)"></div>
   </div>
 
   <!-- UI Kompas Utama -->
@@ -91,7 +63,7 @@
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
     <!-- Cincin Kompas -->
-    <div id="dial" class="absolute inset-0 w-full h-full z-10">
+    <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
       <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
@@ -101,7 +73,7 @@
       <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
       <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
       
-      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner">
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner will-change-transform">
         <div class="relative w-5 h-5">
           <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
           <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
@@ -112,10 +84,8 @@
 
   <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <!-- Font size diperkecil sedikit lagi (clamp atasnya jadi 4.8rem) -->
     <h1 id="headingText" class="font-ios-thin leading-none mb-3" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
-    <!-- Info lokasi diperbesar (text-[19px]) -->
     <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
@@ -131,36 +101,52 @@
       { deg: 180, text: '180', type: 'number', outer: true }, { deg: 210, text: '210', type: 'number', outer: true },
       { deg: 240, text: '240', type: 'number', outer: true }, { deg: 270, text: '270', type: 'number', outer: true },
       { deg: 300, text: '300', type: 'number', outer: true }, { deg: 330, text: '330', type: 'number', outer: true },
-      
       { deg: 0, text: 'N', type: 'letter', outer: false }, { deg: 90, text: 'E', type: 'letter', outer: false },
       { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
-    let currentRotation = 0; 
-    let secretTarget = null;
-    let isMagicMode = false;
-    let locationFetched = false;
+    // Engine State (Low-Pass Filter)
+    let targetHeading = 0;
+    let currentHeading = 0;
+    
+    let targetTiltX = 0, currentTiltX = 0;
+    let targetTiltY = 0, currentTiltY = 0;
+    
+    // Config Smoothing
+    const HEADING_SMOOTHING = 0.12; 
+    const TILT_SMOOTHING = 0.15;
 
+    // App State
+    let isRunning = false;
+    let watchId = null;
+    let lastFetchedLat = null;
+    let lastFetchedLon = null;
+    let hasRequestedPermission = false;
+
+    // Elements
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
     const overlay = document.getElementById('calibration-overlay');
     const levelBubble = document.getElementById('level-bubble');
+    const coordsText = document.getElementById('coordsText');
+    const cityText = document.getElementById('cityText');
+    const elevationText = document.getElementById('elevationText');
 
+    // --- UI SETUP ---
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
       const cx = 170, cy = 170;
       
       ctx.clearRect(0, 0, 340, 340);
-      
       ctx.strokeStyle = '#ffffff';
+      
       for (let i = 0; i < 360; i += 2) {
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
-        
         ctx.lineWidth = (i % 30 === 0) ? 2.5 : 1;
         ctx.moveTo(0, -135);
         ctx.lineTo(0, -115);
@@ -187,10 +173,8 @@
 
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        
         const radiusDist = label.outer ? -154 : -75; 
         textSpan.style.marginTop = `${radiusDist}px`; 
-        
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         
@@ -204,20 +188,65 @@
       return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
-    function updateCompassDisplay() {
-      dial.style.transform = `rotate(${currentRotation}deg)`;
+    // --- MAIN RENDER LOOP (60fps) ---
+    function renderLoop() {
+      if (!isRunning) return;
 
+      // 1. Lerp Heading (dengan penanganan wrap-around 360 derajat)
+      let diffHeading = targetHeading - currentHeading;
+      while (diffHeading < -180) diffHeading += 360;
+      while (diffHeading > 180) diffHeading -= 360;
+      currentHeading += diffHeading * HEADING_SMOOTHING;
+
+      // 2. Lerp Tilt (Waterpas)
+      currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
+      currentTiltY += (targetTiltY - currentTiltY) * TILT_SMOOTHING;
+
+      // 3. Update DOM
+      // Kompas diputar minus heading (karena jarum diam, dial yang muter)
+      dial.style.transform = `rotate(${-currentHeading}deg)`;
+      levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
+
+      // Counter-rotate text biar tetep tegak
       labels.forEach(label => {
         const id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         const el = document.getElementById(id);
-        el.style.transform = `translate(-50%, -50%) rotate(${-(currentRotation + label.deg)}deg)`;
+        if(el) {
+           el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
+        }
       });
 
-      let heading = Math.round(((-(currentRotation % 360)) + 360) % 360);
-      if (heading === 360) heading = 0;
-      headingText.innerText = `${heading}° ${getDirection(heading)}`;
+      // Update Teks Heading
+      let displayHeading = Math.round((currentHeading % 360 + 360) % 360);
+      headingText.innerText = `${displayHeading}° ${getDirection(displayHeading)}`;
+
+      requestAnimationFrame(renderLoop);
     }
 
+    // --- SENSOR EVENT LISTENER ---
+    function handleOrientation(event) {
+      if (!event) return;
+
+      // Handle Tilt
+      let beta = event.beta || 0; 
+      let gamma = event.gamma || 0; 
+      targetTiltX = Math.max(-55, Math.min(55, gamma * 0.6));
+      targetTiltY = Math.max(-55, Math.min(55, beta * 0.6));
+
+      // Handle Heading Validation (Support iOS & Android True North)
+      let heading = null;
+      if (typeof event.webkitCompassHeading === 'number') {
+        heading = event.webkitCompassHeading;
+      } else if (typeof event.alpha === 'number') {
+        heading = 360 - event.alpha; // Normalisasi Android
+      }
+      
+      if (heading !== null) {
+        targetHeading = heading;
+      }
+    }
+
+    // --- LOCATION & GPS LOGIC ---
     function toDMS(coord, isLat) {
       const absolute = Math.abs(coord);
       const degrees = Math.floor(absolute);
@@ -228,71 +257,83 @@
       return `${degrees}°${minutes}'${seconds}" ${dir}`;
     }
 
-    function attachOrientationListener() {
-      window.removeEventListener('deviceorientation', handleOrientation);
-      window.removeEventListener('deviceorientationabsolute', handleOrientation);
-
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-              startGPS();
-            } else {
-              alert("Akses sensor ditolak. Restart app ya.");
-            }
-          }).catch(console.error);
-      } else {
-        if ('ondeviceorientationabsolute' in window) {
-          window.addEventListener('deviceorientationabsolute', handleOrientation);
-        } else {
-          window.addEventListener('deviceorientation', handleOrientation);
-        }
-        startGPS();
-      }
+    // Rumus Haversine buat ngecek perpindahan jarak (dalam meter)
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; 
+      const p1 = lat1 * Math.PI/180;
+      const p2 = lat2 * Math.PI/180;
+      const dp = (lat2-lat1) * Math.PI/180;
+      const dl = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
     }
 
-    function requestPermissions() {
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 300);
-      attachOrientationListener();
+    async function fetchAltitudeFallback(lat, lon) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+        const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (data && data.results && data.results[0]) {
+          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
+        }
+      } catch (e) {
+        // Biarin aja N/A kalau timeout/gagal
+      }
     }
 
     function startGPS() {
       if (!navigator.geolocation) {
-        document.getElementById('cityText').innerText = "GPS tidak didukung";
+        cityText.innerText = "GPS tidak didukung";
         return;
       }
 
-      navigator.geolocation.watchPosition(
+      watchId = navigator.geolocation.watchPosition(
         pos => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
-          const alt = pos.coords.altitude;
+          let alt = pos.coords.altitude;
           
-          document.getElementById('coordsText').innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
+          coordsText.innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
           
-          const altText = (alt !== null && alt !== undefined) ? `${Math.round(alt)} m Elevation` : "Elevation N/A";
-          document.getElementById('elevationText').innerText = altText;
+          if (alt !== null && alt !== undefined && alt !== 0) {
+             elevationText.innerText = `${Math.round(alt)} m Elevation`;
+          } else if (elevationText.innerText === "Elevation N/A") {
+             // Fallback fetch cuma kalau alt beneran null/0 dan belum pernah dapet
+             fetchAltitudeFallback(lat, lon);
+          }
 
-          if (!locationFetched) {
-            locationFetched = true; 
+          // Cuma fetch Nominatim kalau user gerak lebih dari 50 meter (hemat API & mencegah rate-limit)
+          let shouldFetchCity = false;
+          if (lastFetchedLat === null) {
+            shouldFetchCity = true;
+          } else {
+            const distance = getDistance(lastFetchedLat, lastFetchedLon, lat, lon);
+            if (distance > 50) shouldFetchCity = true;
+          }
+
+          if (shouldFetchCity) {
+            lastFetchedLat = lat;
+            lastFetchedLon = lon;
+            
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
               headers: { 
-                'Accept-Language': 'id-ID,id;q=0.9',
-                'User-Agent': 'CompassMagicApp/1.0'
+                'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8',
+                'User-Agent': 'NativeCompassClone/1.0 (Contact: local@dev)'
               }
             })
-              .then(res => res.json())
-              .then(data => {
-                if (data.address) {
-                  const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
-                  document.getElementById('cityText').innerText = city;
-                }
-              }).catch(() => {
-                document.getElementById('cityText').innerText = "Area Lokal";
-                locationFetched = false; 
-              });
+            .then(res => res.json())
+            .then(data => {
+              if (data.address) {
+                const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
+                cityText.innerText = city;
+              }
+            }).catch(() => {
+              // Kalau masih dilimit, pakai fallback aman
+              if(cityText.innerText === "Mencari lokasi...") cityText.innerText = "Area Lokal";
+            });
           }
         }, 
         err => {
@@ -302,70 +343,72 @@
       );
     }
 
-    function handleOrientation(event) {
-      let beta = event.beta || 0; 
-      let gamma = event.gamma || 0; 
-      
-      let xMove = Math.max(-55, Math.min(55, gamma * 0.6));
-      let yMove = Math.max(-55, Math.min(55, beta * 0.6));
-      levelBubble.style.transform = `translate(calc(-50% + ${xMove}px), calc(-50% + ${yMove}px))`;
-
-      if (isMagicMode) return;
-
-      let heading = event.webkitCompassHeading ?? event.alpha;
-      if (heading == null) return;
-
-      let diff = (-heading) - currentRotation;
-      while (diff < -180) diff += 360;
-      while (diff > 180) diff -= 360;
-      
-      currentRotation += diff * 0.35; 
-      updateCompassDisplay();
-    }
-
-    window.setTarget = function(angle) {
-      if (isMagicMode) return;
-      secretTarget = angle;
-      if (navigator.vibrate) navigator.vibrate([10, 30, 10]); 
-    }
-
-    window.triggerSpin = function() {
-      if (isMagicMode || secretTarget === null) return;
-      isMagicMode = true;
-      if (navigator.vibrate) navigator.vibrate(50); 
-      
-      let spins = 5;
-      let finalRotation = currentRotation - (spins * 360 + (currentRotation % 360 - secretTarget));
-
-      const startRotation = currentRotation;
-      const duration = 5000; 
-      let startTime = null;
-
-      function easeOutExpo(x) {
-        return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    // --- LIFECYCLE MANAGEMENT ---
+    function startSensors() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function' && !hasRequestedPermission) {
+         // Di iOS harus klik dlu makanya pakai flag
+         return; 
       }
 
-      function animate(currentTime) {
-        if (!startTime) startTime = currentTime;
-        const timeElapsed = currentTime - startTime;
-        const progress = Math.min(timeElapsed / duration, 1);
+      isRunning = true;
+      requestAnimationFrame(renderLoop);
 
-        currentRotation = startRotation + (finalRotation - startRotation) * easeOutExpo(progress);
-        updateCompassDisplay();
+      // Attach Sensor
+      if ('ondeviceorientationabsolute' in window) {
+        window.addEventListener('deviceorientationabsolute', handleOrientation);
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
 
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        } else {
-          isMagicMode = false;
-          secretTarget = null;
+      startGPS();
+    }
+
+    function stopSensors() {
+      isRunning = false;
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+      window.removeEventListener('deviceorientation', handleOrientation);
+      
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+
+    // Handle background/foreground tab
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopSensors();
+      } else {
+        // Cuma resume kalau udah di acc di awal
+        if (overlay.style.display === 'none') {
+          startSensors();
         }
       }
-      requestAnimationFrame(animate);
+    });
+
+    // --- INIT ---
+    window.startApp = function() {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 300);
+
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        hasRequestedPermission = true;
+        DeviceOrientationEvent.requestPermission()
+          .then(permissionState => {
+            if (permissionState === 'granted') {
+              startSensors();
+            } else {
+              alert("Akses sensor ditolak. Restart app ya.");
+            }
+          }).catch(console.error);
+      } else {
+        hasRequestedPermission = true;
+        startSensors();
+      }
     }
 
     drawTicks();
     initLabels();
-    updateCompassDisplay();
 
   </script>
 </body>
