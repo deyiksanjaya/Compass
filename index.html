@@ -33,6 +33,7 @@
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     .font-ios-thin { font-weight: 100; letter-spacing: -2px; }
     
+    /* Settings Modal */
     #settings-modal {
       position: absolute; inset: 0; background-color: rgba(0,0,0,0.95); z-index: 999;
       display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -41,6 +42,7 @@
     .setting-row { display: flex; justify-content: space-between; width: 100%; max-width: 300px; margin-bottom: 1rem; align-items: center;}
     .setting-row input { width: 80px; background: #1c1c1e; border: 1px solid #333; color: white; padding: 4px 8px; border-radius: 6px; text-align: right;}
     
+    /* Indicator Transisi Biar Smooth */
     #magic-indicator {
       transition: opacity 0.15s ease-in-out;
     }
@@ -48,6 +50,7 @@
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
+  <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="startAppManual()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -55,8 +58,10 @@
     </div>
   </div>
 
+  <!-- Settings Modal Rahasia -->
   <div id="settings-modal">
     <h2 class="text-2xl font-semibold mb-6 text-white">Magic Settings</h2>
+    
     <div class="setting-row">
       <label>Tilt Threshold (°)</label>
       <input type="number" id="set-threshold" value="30">
@@ -77,10 +82,12 @@
       <label>Animasi Muter (detik)</label>
       <input type="number" step="0.1" id="set-anim" value="3.0">
     </div>
+    
     <button onclick="saveSettings()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full">Simpan & Tutup</button>
     <button onclick="resetApp()" class="mt-4 bg-red-900/50 border border-red-500 hover:bg-red-800 text-white font-medium py-2 px-6 rounded-full text-sm">Reset Everything</button>
   </div>
 
+  <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
@@ -89,6 +96,7 @@
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
+    <!-- Waterpas -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
       <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
       <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
@@ -102,6 +110,7 @@
     </div>
   </div>
 
+  <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
     <h1 id="headingText" class="font-ios-thin leading-none mb-8" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
@@ -174,6 +183,7 @@
     const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
 
+    // --- SETTINGS UI ---
     function handleElevationTap() {
       tapCount++;
       clearTimeout(tapTimeout);
@@ -207,6 +217,7 @@
       }
     }
 
+    // --- UI SETUP ---
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
@@ -256,6 +267,7 @@
 
     function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
+    // --- MAIN RENDER & MAGIC MACHINE ---
     function renderLoop() {
       if (!isRunning) return;
       const now = Date.now();
@@ -366,17 +378,11 @@
       dial.style.transform = `rotate(${-currentHeading}deg)`;
       levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
 
-      // Logika update teks dan rotasi
+      // BUG FIX: Semua label (Angka & Huruf) selalu counter-rotate biar tegak lurus buat dibaca
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
-        if (el) {
-          if (label.type === 'letter') {
-            // Huruf N E S W selalu tegak lurus buat dibaca
-            el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
-          } else {
-            // Angka 30, 60 statis dicat di cincin kompas, ga counter-rotate
-            el.style.transform = `translate(-50%, -50%) rotate(0deg)`;
-          }
+        if(el) {
+           el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
         }
       });
 
