@@ -59,7 +59,7 @@
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Overlay Izin Sensor (Wajib di iOS biar sensor dan GPS mau jalan) -->
+  <!-- Overlay Izin Sensor -->
   <div id="calibration-overlay" onclick="requestPermissions()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -109,7 +109,7 @@
     <div class="space-y-2 text-[15px] font-normal tracking-wide text-gray-100">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
-      <p id="elevationText">0 m Elevation</p>
+      <p id="elevationText">Elevation N/A</p>
     </div>
   </div>
 
@@ -129,6 +129,8 @@
     let currentRotation = 0; 
     let secretTarget = null;
     let isMagicMode = false;
+    let orientationListenerAttached = false; // Flag biar event ga ke-attach 2x
+    let locationFetched = false;
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
@@ -149,16 +151,17 @@
         ctx.translate(cx, cy);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
+        
+        // Panjang garis disamain, cuma beda ketebalan
         if (i % 30 === 0) {
           ctx.lineWidth = 2;
-          ctx.moveTo(0, -120);
-          ctx.lineTo(0, -100);
         } else {
           ctx.lineWidth = 1;
-          ctx.moveTo(0, -120);
-          ctx.lineTo(0, -110);
         }
+        ctx.moveTo(0, -120);
+        ctx.lineTo(0, -100);
         ctx.stroke();
+        
         ctx.restore();
       }
 
@@ -206,7 +209,8 @@
         el.style.transform = `translate(-50%, -50%) rotate(${-(currentRotation + label.deg)}deg)`;
       });
 
-      let heading = Math.round((360 - (currentRotation % 360)) % 360);
+      // Normalisasi heading yang benar
+      let heading = Math.round(((-(currentRotation % 360)) + 360) % 360);
       if (heading === 360) heading = 0;
       headingText.innerText = `${heading}° ${getDirection(heading)}`;
     }
@@ -221,25 +225,36 @@
       return `${degrees}°${minutes}'${seconds}" ${dir}`;
     }
 
-    function requestPermissions() {
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.style.display = 'none', 300);
-
+    function attachOrientationListener() {
+      if (orientationListenerAttached) return;
+      
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(permissionState => {
             if (permissionState === 'granted') {
               window.addEventListener('deviceorientation', handleOrientation);
+              orientationListenerAttached = true;
               startGPS();
             } else {
               alert("Akses sensor ditolak. Restart app ya.");
             }
           }).catch(console.error);
       } else {
-        window.addEventListener('deviceorientationabsolute', handleOrientation);
-        window.addEventListener('deviceorientation', handleOrientation);
+        // Prioritas absolute untuk Android biar dapet true north
+        if ('ondeviceorientationabsolute' in window) {
+          window.addEventListener('deviceorientationabsolute', handleOrientation);
+        } else {
+          window.addEventListener('deviceorientation', handleOrientation);
+        }
+        orientationListenerAttached = true;
         startGPS();
       }
+    }
+
+    function requestPermissions() {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.style.display = 'none', 300);
+      attachOrientationListener();
     }
 
     function startGPS() {
@@ -248,47 +263,44 @@
         return;
       }
 
-      const geoOptions = {
-        enableHighAccuracy: true,
-        timeout: 10000,      // Kasih waktu 10 detik max buat nyari lokasi
-        maximumAge: 0        // Jangan pakai data cache lama
-      };
-
       navigator.geolocation.watchPosition(
         pos => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
-          const alt = pos.coords.altitude || 0;
+          const alt = pos.coords.altitude;
           
           document.getElementById('coordsText').innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
-          document.getElementById('elevationText').innerText = `${Math.round(alt)} m Elevation`;
+          
+          // Fix Elevation null issue
+          const altText = (alt !== null && alt !== undefined) ? `${Math.round(alt)} m Elevation` : "Elevation N/A";
+          document.getElementById('elevationText').innerText = altText;
 
-          // Fetch nama kota menggunakan Nominatim
-          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-            headers: {
-              'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
-            }
-          })
-            .then(res => res.json())
-            .then(data => {
-              if (data.address) {
-                const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
-                document.getElementById('cityText').innerText = city;
-              }
-            }).catch(() => {
-              // Kalau gagal ngambil API (misal limit), tetap tunjukin "Lokasi Tersedia" bukan error jelek
-              document.getElementById('cityText').innerText = "Area Lokal";
-            });
+          if (!locationFetched) {
+            locationFetched = true; // Set flag duluan biar ga race condition
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+              headers: { 'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7' }
+            })
+              .then(res => res.json())
+              .then(data => {
+                if (data.address) {
+                  const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
+                  document.getElementById('cityText').innerText = city;
+                }
+              }).catch(() => {
+                document.getElementById('cityText').innerText = "Area Lokal";
+                locationFetched = false; // Boleh coba lagi nanti kalau gagal API
+              });
+          }
         }, 
         err => {
           console.warn('GPS Error', err);
-          if(err.code === 1) {
-            document.getElementById('cityText').innerText = "Akses Lokasi Ditolak";
+          if (err.code === 1) {
+            document.getElementById('cityText').innerText = "Izin GPS ditolak";
           } else {
             document.getElementById('cityText').innerText = "Sinyal GPS Lemah";
           }
         }, 
-        geoOptions
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
@@ -306,6 +318,7 @@
       if (event.webkitCompassHeading !== undefined) {
         heading = event.webkitCompassHeading;
       } else if (event.alpha !== null) {
+        // Normalisasi alpha
         heading = 360 - event.alpha; 
       } else {
         return;
@@ -330,14 +343,17 @@
       isMagicMode = true;
       if (navigator.vibrate) navigator.vibrate(50); 
       
-      const spins = 1800; 
-      const currentModulo = currentRotation % 360;
-      let normalizedCurrent = currentModulo < 0 ? 360 + currentModulo : currentModulo;
-      
-      let diffToTarget = secretTarget - normalizedCurrent;
-      const startRotation = currentRotation;
-      const finalRotation = startRotation + diffToTarget - spins;
+      // Fix kalkulasi spin: putar 5 kali ke kiri (-1800) baru berhenti di target
+      let targetRotation = secretTarget;
+      let currentBase = Math.floor(currentRotation / 360) * 360;
+      let finalRotation = currentBase + targetRotation - 1800;
 
+      // Pastikan jarak putarnya kerasa (gak cuma geser dikit)
+      if (currentRotation - finalRotation < 1800) {
+        finalRotation -= 360;
+      }
+
+      const startRotation = currentRotation;
       const duration = 5000; 
       let startTime = null;
 
@@ -356,13 +372,13 @@
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
+          isMagicMode = false; // Reset balik biar sensor gyro nyala lagi setelah trik
           secretTarget = null;
         }
       }
       requestAnimationFrame(animate);
     }
 
-    // Inisiasi awal
     drawTicks();
     initLabels();
     updateCompassDisplay();
