@@ -81,10 +81,10 @@
     <div class="secret-zone" onclick="setTarget(135)"></div>
   </div>
 
-  <!-- UI Kompas Utama (Ukuran 340x340) -->
+  <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
     
-    <!-- GARIS PUTIH TENGAH: Diperpanjang sampe ngelewatin angka di atas -->
+    <!-- GARIS PUTIH TENGAH -->
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
     <!-- Cincin Kompas -->
@@ -98,7 +98,8 @@
       <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
       <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
       
-      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#3a3a3c]/90 rounded-full flex items-center justify-center shadow-inner">
+      <!-- Warna background diganti ke #1e1e1e -->
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner">
         <div class="relative w-5 h-5">
           <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
           <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
@@ -109,11 +110,11 @@
 
   <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <!-- Teks Derajat diperkecil dikit jadi 5.25rem -->
-    <h1 id="headingText" class="text-[5.25rem] font-ios-thin leading-none mb-3">0° N</h1>
+    <!-- Font size diperkecil sedikit lagi (clamp atasnya jadi 4.8rem) -->
+    <h1 id="headingText" class="font-ios-thin leading-none mb-3" style="font-size: clamp(3.5rem, 16vw, 4.8rem);">0° N</h1>
     
-    <!-- Info lokasi diperbesar ke 17px -->
-    <div class="flex flex-col items-center justify-center space-y-1 text-[17px] font-medium tracking-wide text-white">
+    <!-- Info lokasi diperbesar (text-[19px]) -->
+    <div class="flex flex-col items-center justify-center space-y-1 text-[19px] font-medium tracking-wide text-white">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
       <p id="elevationText">Elevation N/A</p>
@@ -136,7 +137,6 @@
     let currentRotation = 0; 
     let secretTarget = null;
     let isMagicMode = false;
-    let orientationListenerAttached = false; 
     let locationFetched = false;
 
     const dial = document.getElementById('dial');
@@ -159,16 +159,10 @@
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
         
-        if (i % 30 === 0) {
-          ctx.lineWidth = 2.5;
-        } else {
-          ctx.lineWidth = 1;
-        }
-        
+        ctx.lineWidth = (i % 30 === 0) ? 2.5 : 1;
         ctx.moveTo(0, -135);
         ctx.lineTo(0, -115);
         ctx.stroke();
-        
         ctx.restore();
       }
 
@@ -233,14 +227,14 @@
     }
 
     function attachOrientationListener() {
-      if (orientationListenerAttached) return;
-      
+      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(permissionState => {
             if (permissionState === 'granted') {
               window.addEventListener('deviceorientation', handleOrientation);
-              orientationListenerAttached = true;
               startGPS();
             } else {
               alert("Akses sensor ditolak. Restart app ya.");
@@ -252,14 +246,13 @@
         } else {
           window.addEventListener('deviceorientation', handleOrientation);
         }
-        orientationListenerAttached = true;
         startGPS();
       }
     }
 
     function requestPermissions() {
       overlay.style.opacity = '0';
-      setTimeout(() => overlay.style.display = 'none', 300);
+      setTimeout(() => overlay.remove(), 300);
       attachOrientationListener();
     }
 
@@ -283,7 +276,10 @@
           if (!locationFetched) {
             locationFetched = true; 
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-              headers: { 'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7' }
+              headers: { 
+                'Accept-Language': 'id-ID,id;q=0.9',
+                'User-Agent': 'CompassMagicApp/1.0'
+              }
             })
               .then(res => res.json())
               .then(data => {
@@ -308,26 +304,20 @@
       let beta = event.beta || 0; 
       let gamma = event.gamma || 0; 
       
-      let xMove = Math.max(-55, Math.min(55, gamma * 1.2));
-      let yMove = Math.max(-55, Math.min(55, beta * 1.2));
+      let xMove = Math.max(-55, Math.min(55, gamma * 0.6));
+      let yMove = Math.max(-55, Math.min(55, beta * 0.6));
       levelBubble.style.transform = `translate(calc(-50% + ${xMove}px), calc(-50% + ${yMove}px))`;
 
       if (isMagicMode) return;
 
-      let heading = 0;
-      if (event.webkitCompassHeading !== undefined) {
-        heading = event.webkitCompassHeading;
-      } else if (event.alpha !== null) {
-        heading = 360 - event.alpha; 
-      } else {
-        return;
-      }
+      let heading = event.webkitCompassHeading ?? event.alpha;
+      if (heading == null) return;
 
       let diff = (-heading) - currentRotation;
       while (diff < -180) diff += 360;
       while (diff > 180) diff -= 360;
       
-      currentRotation += diff * 0.2; 
+      currentRotation += diff * 0.35; 
       updateCompassDisplay();
     }
 
@@ -342,13 +332,8 @@
       isMagicMode = true;
       if (navigator.vibrate) navigator.vibrate(50); 
       
-      let targetRotation = secretTarget;
-      let currentBase = Math.floor(currentRotation / 360) * 360;
-      let finalRotation = currentBase + targetRotation - 1800;
-
-      if (currentRotation - finalRotation < 1800) {
-        finalRotation -= 360;
-      }
+      let spins = 5;
+      let finalRotation = currentRotation - (spins * 360 + (currentRotation % 360 - secretTarget));
 
       const startRotation = currentRotation;
       const duration = 5000; 
