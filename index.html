@@ -58,7 +58,6 @@
 
   <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
-    
     <!-- GARIS PUTIH TENGAH -->
     <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
@@ -106,14 +105,11 @@
     ];
 
     // Engine State (Low-Pass Filter)
-    let targetHeading = 0;
-    let currentHeading = 0;
-    
+    let targetHeading = 0, currentHeading = 0;
     let targetTiltX = 0, currentTiltX = 0;
     let targetTiltY = 0, currentTiltY = 0;
     
-    // Config Smoothing
-    const HEADING_SMOOTHING = 0.12; 
+    const HEADING_SMOOTHING = 0.35; 
     const TILT_SMOOTHING = 0.15;
 
     // App State
@@ -122,12 +118,15 @@
     let lastFetchedLat = null;
     let lastFetchedLon = null;
     let hasRequestedPermission = false;
+    
+    // Watchdog Timer
+    let lastOrientationTime = 0;
+    let watchdogTimer = null;
 
     // Elements
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
-    const overlay = document.getElementById('calibration-overlay');
     const levelBubble = document.getElementById('level-bubble');
     const coordsText = document.getElementById('coordsText');
     const cityText = document.getElementById('cityText');
@@ -192,61 +191,88 @@
     function renderLoop() {
       if (!isRunning) return;
 
-      // 1. Lerp Heading (dengan penanganan wrap-around 360 derajat)
+      // Lerp Heading
       let diffHeading = targetHeading - currentHeading;
       while (diffHeading < -180) diffHeading += 360;
       while (diffHeading > 180) diffHeading -= 360;
       currentHeading += diffHeading * HEADING_SMOOTHING;
 
-      // 2. Lerp Tilt (Waterpas)
+      // Lerp Tilt (Waterpas)
       currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
       currentTiltY += (targetTiltY - currentTiltY) * TILT_SMOOTHING;
 
-      // 3. Update DOM
-      // Kompas diputar minus heading (karena jarum diam, dial yang muter)
+      // Update DOM
       dial.style.transform = `rotate(${-currentHeading}deg)`;
       levelBubble.style.transform = `translate(calc(-50% + ${currentTiltX}px), calc(-50% + ${currentTiltY}px))`;
 
-      // Counter-rotate text biar tetep tegak
       labels.forEach(label => {
-        const id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
-        const el = document.getElementById(id);
+        const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
         if(el) {
            el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
         }
       });
 
-      // Update Teks Heading
       let displayHeading = Math.round((currentHeading % 360 + 360) % 360);
       headingText.innerText = `${displayHeading}° ${getDirection(displayHeading)}`;
 
       requestAnimationFrame(renderLoop);
     }
 
-    // --- SENSOR EVENT LISTENER ---
+    // --- SENSOR LOGIC ---
+    function resetWatchdog() {
+      lastOrientationTime = Date.now();
+      clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        // Kalau dokumen lagi aktif dan izin udah ada, coba paksa attach lagi
+        if (hasRequestedPermission && document.visibilityState === 'visible') {
+          console.warn("Sensor freeze terdeteksi (> 3 detik). Mencoba re-attach...");
+          attachOrientationListener();
+        }
+      }, 3000);
+    }
+
     function handleOrientation(event) {
       if (!event) return;
+      resetWatchdog();
 
-      // Handle Tilt
       let beta = event.beta || 0; 
       let gamma = event.gamma || 0; 
       targetTiltX = Math.max(-55, Math.min(55, gamma * 0.6));
       targetTiltY = Math.max(-55, Math.min(55, beta * 0.6));
 
-      // Handle Heading Validation (Support iOS & Android True North)
-      let heading = null;
-      if (typeof event.webkitCompassHeading === 'number') {
-        heading = event.webkitCompassHeading;
-      } else if (typeof event.alpha === 'number') {
-        heading = 360 - event.alpha; // Normalisasi Android
-      }
-      
+      let heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
       if (heading !== null) {
         targetHeading = heading;
       }
     }
 
-    // --- LOCATION & GPS LOGIC ---
+    function attachOrientationListener() {
+      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('deviceorientationabsolute', handleOrientation);
+
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        if (hasRequestedPermission) {
+          DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+              if (permissionState === 'granted') {
+                window.addEventListener('deviceorientation', handleOrientation);
+                startGPS();
+                resetWatchdog();
+              }
+            }).catch(e => console.warn("Permission re-request failed", e));
+        }
+      } else {
+        if ('ondeviceorientationabsolute' in window) {
+          window.addEventListener('deviceorientationabsolute', handleOrientation);
+        } else {
+          window.addEventListener('deviceorientation', handleOrientation);
+        }
+        startGPS();
+        resetWatchdog();
+      }
+    }
+
+    // --- LOCATION LOGIC ---
     function toDMS(coord, isLat) {
       const absolute = Math.abs(coord);
       const degrees = Math.floor(absolute);
@@ -257,7 +283,6 @@
       return `${degrees}°${minutes}'${seconds}" ${dir}`;
     }
 
-    // Rumus Haversine buat ngecek perpindahan jarak (dalam meter)
     function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371e3; 
       const p1 = lat1 * Math.PI/180;
@@ -265,23 +290,20 @@
       const dp = (lat2-lat1) * Math.PI/180;
       const dl = (lon2-lon1) * Math.PI/180;
       const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      return R * c;
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
     async function fetchAltitudeFallback(lat, lon) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec timeout
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: controller.signal });
         clearTimeout(timeoutId);
         const data = await res.json();
         if (data && data.results && data.results[0]) {
           elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
         }
-      } catch (e) {
-        // Biarin aja N/A kalau timeout/gagal
-      }
+      } catch (e) {}
     }
 
     function startGPS() {
@@ -289,6 +311,8 @@
         cityText.innerText = "GPS tidak didukung";
         return;
       }
+      
+      if (watchId !== null) return; // Mencegah dobel watchId
 
       watchId = navigator.geolocation.watchPosition(
         pos => {
@@ -301,17 +325,14 @@
           if (alt !== null && alt !== undefined && alt !== 0) {
              elevationText.innerText = `${Math.round(alt)} m Elevation`;
           } else if (elevationText.innerText === "Elevation N/A") {
-             // Fallback fetch cuma kalau alt beneran null/0 dan belum pernah dapet
              fetchAltitudeFallback(lat, lon);
           }
 
-          // Cuma fetch Nominatim kalau user gerak lebih dari 50 meter (hemat API & mencegah rate-limit)
           let shouldFetchCity = false;
           if (lastFetchedLat === null) {
             shouldFetchCity = true;
           } else {
-            const distance = getDistance(lastFetchedLat, lastFetchedLon, lat, lon);
-            if (distance > 50) shouldFetchCity = true;
+            if (getDistance(lastFetchedLat, lastFetchedLon, lat, lon) > 50) shouldFetchCity = true;
           }
 
           if (shouldFetchCity) {
@@ -321,7 +342,7 @@
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
               headers: { 
                 'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8',
-                'User-Agent': 'NativeCompassClone/1.0 (Contact: local@dev)'
+                'User-Agent': 'NativeCompassClone/1.0'
               }
             })
             .then(res => res.json())
@@ -331,42 +352,20 @@
                 cityText.innerText = city;
               }
             }).catch(() => {
-              // Kalau masih dilimit, pakai fallback aman
               if(cityText.innerText === "Mencari lokasi...") cityText.innerText = "Area Lokal";
             });
           }
         }, 
-        err => {
-          console.warn('GPS Error', err);
-        }, 
+        err => console.warn('GPS Error', err), 
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
-    }
-
-    // --- LIFECYCLE MANAGEMENT ---
-    function startSensors() {
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function' && !hasRequestedPermission) {
-         // Di iOS harus klik dlu makanya pakai flag
-         return; 
-      }
-
-      isRunning = true;
-      requestAnimationFrame(renderLoop);
-
-      // Attach Sensor
-      if ('ondeviceorientationabsolute' in window) {
-        window.addEventListener('deviceorientationabsolute', handleOrientation);
-      } else {
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
-
-      startGPS();
     }
 
     function stopSensors() {
       isRunning = false;
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
       window.removeEventListener('deviceorientation', handleOrientation);
+      clearTimeout(watchdogTimer);
       
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
@@ -374,37 +373,33 @@
       }
     }
 
-    // Handle background/foreground tab
+    // --- VISIBILITY / LIFECYCLE ---
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        stopSensors();
-      } else {
-        // Cuma resume kalau udah di acc di awal
-        if (overlay.style.display === 'none') {
-          startSensors();
+      if (document.visibilityState === 'visible') {
+        if (hasRequestedPermission) {
+          attachOrientationListener();
+          if (!isRunning) {
+            isRunning = true;
+            requestAnimationFrame(renderLoop);
+          }
         }
+      } else {
+        stopSensors();
       }
     });
 
     // --- INIT ---
     window.startApp = function() {
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.remove(), 300);
-
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        hasRequestedPermission = true;
-        DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-              startSensors();
-            } else {
-              alert("Akses sensor ditolak. Restart app ya.");
-            }
-          }).catch(console.error);
-      } else {
-        hasRequestedPermission = true;
-        startSensors();
+      const overlay = document.getElementById('calibration-overlay');
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 300);
       }
+
+      hasRequestedPermission = true;
+      isRunning = true;
+      requestAnimationFrame(renderLoop);
+      attachOrientationListener();
     }
 
     drawTicks();
