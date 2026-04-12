@@ -36,13 +36,12 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: opacity 0.5s;
+      transition: opacity 0.3s;
     }
 
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
 
-    /* Secret grid nutupin layar buat input magic */
     #secret-grid {
       position: absolute;
       inset: 0;
@@ -53,7 +52,6 @@
     }
     .secret-zone { width: 100%; height: 100%; }
 
-    /* Transisi mulus buat waterpas (bulatan abu) */
     #level-bubble {
       transition: transform 0.1s linear;
     }
@@ -61,7 +59,7 @@
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen relative select-none">
 
-  <!-- Overlay Izin Sensor -->
+  <!-- Overlay Izin Sensor (Wajib di iOS biar sensor dan GPS mau jalan) -->
   <div id="calibration-overlay" onclick="requestPermissions()">
     <div class="text-center">
       <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -84,25 +82,19 @@
 
   <!-- UI Kompas Utama -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-12 mt-4">
-    
-    <!-- 1. Garis Putih Statis di Top Center -->
     <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
-    <!-- 2. Dial yang Muter (Isi Canvas Garis, Angka & Segitiga Merah) -->
     <div id="dial" class="absolute inset-0 w-full h-full z-10">
       <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
-    <!-- 3. Waterpas / Spirit Level -->
+    <!-- Waterpas -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
-      <!-- Crosshair Statis Besar -->
       <div class="absolute w-[160px] h-[1px] bg-white opacity-20"></div>
       <div class="absolute w-[1px] h-[160px] bg-white opacity-20"></div>
       
-      <!-- Bulatan Abu Bergerak -->
       <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#2c2c2e]/90 rounded-full flex items-center justify-center">
-        <!-- Crosshair Kecil di dalam bulatan -->
         <div class="relative w-5 h-5">
           <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
           <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
@@ -122,39 +114,27 @@
   </div>
 
   <script>
-    // Data label: Angka di luar, Huruf di dalam
     const labels = [
-      { deg: 0, text: '0', type: 'number', outer: true },
-      { deg: 30, text: '30', type: 'number', outer: true },
-      { deg: 60, text: '60', type: 'number', outer: true },
-      { deg: 90, text: '90', type: 'number', outer: true },
-      { deg: 120, text: '120', type: 'number', outer: true },
-      { deg: 150, text: '150', type: 'number', outer: true },
-      { deg: 180, text: '180', type: 'number', outer: true },
-      { deg: 210, text: '210', type: 'number', outer: true },
-      { deg: 240, text: '240', type: 'number', outer: true },
-      { deg: 270, text: '270', type: 'number', outer: true },
-      { deg: 300, text: '300', type: 'number', outer: true },
-      { deg: 330, text: '330', type: 'number', outer: true },
+      { deg: 0, text: '0', type: 'number', outer: true }, { deg: 30, text: '30', type: 'number', outer: true },
+      { deg: 60, text: '60', type: 'number', outer: true }, { deg: 90, text: '90', type: 'number', outer: true },
+      { deg: 120, text: '120', type: 'number', outer: true }, { deg: 150, text: '150', type: 'number', outer: true },
+      { deg: 180, text: '180', type: 'number', outer: true }, { deg: 210, text: '210', type: 'number', outer: true },
+      { deg: 240, text: '240', type: 'number', outer: true }, { deg: 270, text: '270', type: 'number', outer: true },
+      { deg: 300, text: '300', type: 'number', outer: true }, { deg: 330, text: '330', type: 'number', outer: true },
       
-      { deg: 0, text: 'N', type: 'letter', outer: false },
-      { deg: 90, text: 'E', type: 'letter', outer: false },
-      { deg: 180, text: 'S', type: 'letter', outer: false },
-      { deg: 270, text: 'W', type: 'letter', outer: false }
+      { deg: 0, text: 'N', type: 'letter', outer: false }, { deg: 90, text: 'E', type: 'letter', outer: false },
+      { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
     let currentRotation = 0; 
     let secretTarget = null;
     let isMagicMode = false;
-    let locationFetched = false;
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
     const overlay = document.getElementById('calibration-overlay');
     const levelBubble = document.getElementById('level-bubble');
-
-    const hasGivenPermission = localStorage.getItem('magicCompassPermission') === 'true';
 
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
@@ -163,7 +143,6 @@
       
       ctx.clearRect(0, 0, 340, 340);
       
-      // Gambar Garis-garis kompas
       ctx.strokeStyle = '#ffffff';
       for (let i = 0; i < 360; i += 2) {
         ctx.save();
@@ -183,14 +162,13 @@
         ctx.restore();
       }
 
-      // Gambar Segitiga Merah yang nempel persis nunjuk angka 0 (Utara)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.fillStyle = '#ff3b30';
       ctx.beginPath();
-      ctx.moveTo(0, -132);  // Titik ujung atas menunjuk angka 0
-      ctx.lineTo(-6, -122); // Bawah kiri
-      ctx.lineTo(6, -122);  // Bawah kanan
+      ctx.moveTo(0, -132);  
+      ctx.lineTo(-6, -122); 
+      ctx.lineTo(6, -122);  
       ctx.fill();
       ctx.restore();
     }
@@ -202,10 +180,7 @@
         container.style.transform = `rotate(${label.deg}deg)`;
 
         const textSpan = document.createElement('div');
-        // Setting gaya font. Huruf lebih gede, angka lebih kecil
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        
-        // Atur posisi radius: Angka jauh di luar (-155px), Huruf di dalam (-75px)
         const radiusDist = label.outer ? -155 : -70; 
         textSpan.style.marginTop = `${radiusDist}px`; 
         
@@ -217,7 +192,6 @@
       });
     }
 
-    // Dibikin cuma 8 arah simpel: N, NE, E, SE, S, SW, W, NW
     function getDirection(degrees) {
       const arr = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
       return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
@@ -226,7 +200,6 @@
     function updateCompassDisplay() {
       dial.style.transform = `rotate(${currentRotation}deg)`;
 
-      // Biar tulisan tetep tegak walau cincinnya muter
       labels.forEach(label => {
         const id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         const el = document.getElementById(id);
@@ -248,34 +221,41 @@
       return `${degrees}°${minutes}'${seconds}" ${dir}`;
     }
 
-    function hideOverlay() {
-      overlay.style.opacity = '0';
-      setTimeout(() => overlay.style.display = 'none', 500);
-    }
-
     function requestPermissions() {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.style.display = 'none', 300);
+
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         DeviceOrientationEvent.requestPermission()
           .then(permissionState => {
             if (permissionState === 'granted') {
               window.addEventListener('deviceorientation', handleOrientation);
-              localStorage.setItem('magicCompassPermission', 'true');
-              hideOverlay();
               startGPS();
+            } else {
+              alert("Akses sensor ditolak. Restart app ya.");
             }
           }).catch(console.error);
       } else {
         window.addEventListener('deviceorientationabsolute', handleOrientation);
         window.addEventListener('deviceorientation', handleOrientation);
-        localStorage.setItem('magicCompassPermission', 'true');
-        hideOverlay();
         startGPS();
       }
     }
 
     function startGPS() {
-      if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(pos => {
+      if (!navigator.geolocation) {
+        document.getElementById('cityText').innerText = "GPS tidak didukung";
+        return;
+      }
+
+      const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,      // Kasih waktu 10 detik max buat nyari lokasi
+        maximumAge: 0        // Jangan pakai data cache lama
+      };
+
+      navigator.geolocation.watchPosition(
+        pos => {
           const lat = pos.coords.latitude;
           const lon = pos.coords.longitude;
           const alt = pos.coords.altitude || 0;
@@ -283,31 +263,43 @@
           document.getElementById('coordsText').innerText = `${toDMS(lat, true)} ${toDMS(lon, false)}`;
           document.getElementById('elevationText').innerText = `${Math.round(alt)} m Elevation`;
 
-          if (!locationFetched) {
-            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
-              .then(res => res.json())
-              .then(data => {
-                const city = data.address.city || data.address.town || data.address.village || data.address.county || "Lokasi Ditemukan";
-                const state = data.address.state || "";
-                document.getElementById('cityText').innerText = `${city}${state ? ', ' + state : ''}`;
-              }).catch(() => {});
-            locationFetched = true;
+          // Fetch nama kota menggunakan Nominatim
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
+            headers: {
+              'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
+            }
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.address) {
+                const city = data.address.city || data.address.town || data.address.village || data.address.county || data.address.state || "Lokasi Ditemukan";
+                document.getElementById('cityText').innerText = city;
+              }
+            }).catch(() => {
+              // Kalau gagal ngambil API (misal limit), tetap tunjukin "Lokasi Tersedia" bukan error jelek
+              document.getElementById('cityText').innerText = "Area Lokal";
+            });
+        }, 
+        err => {
+          console.warn('GPS Error', err);
+          if(err.code === 1) {
+            document.getElementById('cityText').innerText = "Akses Lokasi Ditolak";
+          } else {
+            document.getElementById('cityText').innerText = "Sinyal GPS Lemah";
           }
-        }, err => {}, { enableHighAccuracy: true });
-      }
+        }, 
+        geoOptions
+      );
     }
 
     function handleOrientation(event) {
-      // 1. Logika Waterpas (Tilt HP) - Terus jalan walau lagi mode magic!
       let beta = event.beta || 0; 
       let gamma = event.gamma || 0; 
       
-      // Batasin gerak maksimal bulatan abu
       let xMove = Math.max(-60, Math.min(60, gamma * 1.5));
       let yMove = Math.max(-60, Math.min(60, beta * 1.5));
       levelBubble.style.transform = `translate(calc(-50% + ${xMove}px), calc(-50% + ${yMove}px))`;
 
-      // 2. Logika Arah Kompas (Bakal beku kalau lagi ngerjain trik)
       if (isMagicMode) return;
 
       let heading = 0;
@@ -327,7 +319,6 @@
       updateCompassDisplay();
     }
 
-    // --- Mekanik Rahasia Sulap ---
     window.setTarget = function(angle) {
       if (isMagicMode) return;
       secretTarget = angle;
@@ -339,7 +330,7 @@
       isMagicMode = true;
       if (navigator.vibrate) navigator.vibrate(50); 
       
-      const spins = 1800; // Muter kenceng 5 putaran
+      const spins = 1800; 
       const currentModulo = currentRotation % 360;
       let normalizedCurrent = currentModulo < 0 ? 360 + currentModulo : currentModulo;
       
@@ -368,7 +359,6 @@
           secretTarget = null;
         }
       }
-
       requestAnimationFrame(animate);
     }
 
@@ -376,30 +366,6 @@
     drawTicks();
     initLabels();
     updateCompassDisplay();
-
-    // Auto start kalau udah pernah dapet izin (Biar nggak usah tap layar terus)
-    if (hasGivenPermission) {
-      hideOverlay();
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(permissionState => {
-            if (permissionState === 'granted') {
-               window.addEventListener('deviceorientation', handleOrientation);
-               startGPS();
-            } else {
-               overlay.style.display = 'flex';
-               overlay.style.opacity = '1';
-            }
-          }).catch(() => {
-             overlay.style.display = 'flex';
-             overlay.style.opacity = '1';
-          });
-      } else {
-        window.addEventListener('deviceorientationabsolute', handleOrientation);
-        window.addEventListener('deviceorientation', handleOrientation);
-        startGPS();
-      }
-    }
 
   </script>
 </body>
