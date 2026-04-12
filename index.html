@@ -52,7 +52,6 @@
       transition: transform 0.05s linear;
     }
 
-    /* Font sangat tipis untuk derajat */
     .font-ios-thin {
       font-weight: 100;
       letter-spacing: -2px;
@@ -85,8 +84,8 @@
   <!-- UI Kompas Utama (Ukuran 340x340) -->
   <div class="relative w-[340px] h-[340px] pointer-events-none mb-10 mt-4">
     
-    <!-- GARIS PUTIH TENGAH -->
-    <div class="absolute top-[15px] left-1/2 -translate-x-1/2 w-[2.5px] h-[40px] bg-white z-20"></div>
+    <!-- GARIS PUTIH TENGAH: Diperpanjang sampe ngelewatin angka di atas -->
+    <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
 
     <!-- Cincin Kompas -->
     <div id="dial" class="absolute inset-0 w-full h-full z-10">
@@ -94,16 +93,13 @@
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
-    <!-- Waterpas (Crosshair & Bulatan) -->
+    <!-- Waterpas -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
-      <!-- Crosshair dibikin lebih terang (opacity 30) -->
       <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
       <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
       
-      <!-- Bulatan abu dibikin lebih terang warnanya -->
       <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#3a3a3c]/90 rounded-full flex items-center justify-center shadow-inner">
         <div class="relative w-5 h-5">
-          <!-- Crosshair dalam dibikin lebih terang (opacity 70) -->
           <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
           <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
         </div>
@@ -113,11 +109,11 @@
 
   <!-- Detail Teks -->
   <div class="text-center pointer-events-none w-full px-4 mt-8">
-    <!-- mb-3 untuk ngerapetin jarak angka dengan koordinat -->
-    <h1 id="headingText" class="text-[6rem] font-ios-thin leading-none mb-3">0° N</h1>
+    <!-- Teks Derajat diperkecil dikit jadi 5.25rem -->
+    <h1 id="headingText" class="text-[5.25rem] font-ios-thin leading-none mb-3">0° N</h1>
     
-    <!-- space-y-1 untuk ngerapetin antar baris info, text-white biar pure white -->
-    <div class="flex flex-col items-center justify-center space-y-1 text-[16px] font-medium tracking-wide text-white">
+    <!-- Info lokasi diperbesar ke 17px -->
+    <div class="flex flex-col items-center justify-center space-y-1 text-[17px] font-medium tracking-wide text-white">
       <p id="coordsText">--°--'--" N --°--'--" E</p>
       <p id="cityText">Mencari lokasi...</p>
       <p id="elevationText">Elevation N/A</p>
@@ -176,7 +172,6 @@
         ctx.restore();
       }
 
-      // Segitiga Merah dibikin lebih terang (iOS Dark Mode Red: #ff453a)
       ctx.save();
       ctx.translate(cx, cy);
       ctx.fillStyle = '#ff453a';
