@@ -73,9 +73,19 @@
   <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden items-center justify-center p-6 opacity-0 transition-opacity duration-300">
     <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300" id="settings-card">
       <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
-      <p class="text-[13px] text-gray-400 mb-6">Configure the secret compass behavior.</p>
+      <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
 
-      <div class="space-y-5">
+      <div class="space-y-4">
+        
+        <!-- Toggle Glitch -->
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2">
+          <label class="text-[15px] font-medium text-white">Glitch Effect</label>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="set-glitch" class="sr-only peer">
+            <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+          </label>
+        </div>
+
         <div>
           <div class="flex justify-between items-center mb-1.5">
             <label class="text-[14px] text-gray-200">Tilt Threshold</label>
@@ -113,7 +123,7 @@
         </div>
       </div>
 
-      <div class="mt-8 space-y-3">
+      <div class="mt-6 space-y-3">
         <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-3 px-4 rounded-xl text-[16px] transition-colors">Save & Close</button>
         <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-xl text-[15px] transition-colors">Reset to Defaults</button>
       </div>
@@ -124,7 +134,6 @@
   <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
     <div class="relative w-[320px] h-[320px]">
       
-      <!-- Garis Penunjuk Utara di Paling Atas -->
       <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
       <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
@@ -132,14 +141,11 @@
         <div id="labelsContainer" class="absolute inset-0"></div>
       </div>
 
-      <!-- Area Crosshair & Waterpas Level (z-[-1] biar pasti di layer bawah) -->
       <div class="absolute inset-0 flex items-center justify-center z-[-1]">
-        <!-- Garis + besar dibuat lebih visible (opacity-40) -->
         <div class="absolute w-[180px] h-[1px] bg-white/40"></div>
         <div class="absolute w-[1px] h-[180px] bg-white/40"></div>
         
         <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-          <!-- Crosshair kecil di bubble -->
           <div class="relative w-[18px] h-[18px]">
             <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
             <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
@@ -175,7 +181,9 @@
       { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
+    // Tambah konfigurasi enableGlitch
     let mConf = {
+      enableGlitch: true,
       threshold: 30,
       holdTime: 1500,
       flatDelay: 3000,
@@ -235,6 +243,7 @@
     }
 
     function openSettings() {
+      document.getElementById('set-glitch').checked = mConf.enableGlitch;
       document.getElementById('set-threshold').value = mConf.threshold;
       document.getElementById('set-hold').value = mConf.holdTime / 1000;
       document.getElementById('set-delay').value = mConf.flatDelay / 1000;
@@ -279,6 +288,7 @@
     }
 
     window.saveSettings = function() {
+      mConf.enableGlitch = document.getElementById('set-glitch').checked;
       mConf.threshold = parseFloat(document.getElementById('set-threshold').value);
       mConf.holdTime = parseFloat(document.getElementById('set-hold').value) * 1000;
       mConf.flatDelay = parseFloat(document.getElementById('set-delay').value) * 1000;
@@ -332,9 +342,7 @@
         container.className = 'label-container';
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
-        // Ukuran font N E W S diperkecil jadi 22px
-        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[22px] font-medium' : 'text-[15px] font-medium text-gray-200'}`;
-        // Margin dipertahankan di -98 biar mepet ring
+        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[22px] font-medium' : 'text-[14px] font-medium text-gray-200'}`;
         textSpan.style.marginTop = `${label.outer ? -165 : -98}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
@@ -406,13 +414,35 @@
       }
       else if (mState === 'WAITING_ANIMATION') {
         if (now - stateTimer > 250) {
-          mState = 'ANIMATING';
-          stateTimer = now;
           startAnimHeading = currentHeading;
-          
           let normalizedHeading = ((startAnimHeading % 360) + 360) % 360;
           let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
           isTrueNorth = (activeDirection === 0 && isFacingNorth);
+
+          // Cek toggle Glitch aktif atau nggak
+          if (mConf.enableGlitch) {
+            mState = 'GLITCHING';
+            stateTimer = now;
+          } else {
+            mState = 'ANIMATING';
+            stateTimer = now;
+          }
+        }
+      }
+      else if (mState === 'GLITCHING') {
+        isOverridingHeading = true;
+        
+        // Random lompatan derajat setiap beberapa frame biar kelihatan rusak
+        if (Math.random() > 0.6) {
+          shakeOffset = (Math.random() * 120) - 60; // Lompat acak antara -60 sampai 60 derajat
+        }
+        currentHeading = startAnimHeading + shakeOffset;
+
+        // Glitch berdurasi 600ms
+        if (now - stateTimer > 600) {
+          mState = 'ANIMATING';
+          stateTimer = now;
+          shakeOffset = 0; // reset
         }
       }
       else if (mState === 'ANIMATING') {
