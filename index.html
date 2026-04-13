@@ -120,8 +120,8 @@
     </div>
   </div>
 
-  <!-- CONTAINER KOMPAS DIATAS (Didorong paksa 50px ke bawah dari sebelumnya) -->
-  <div class="absolute top-[calc(18vh+50px)] left-0 w-full flex justify-center z-10 pointer-events-none">
+  <!-- CONTAINER KOMPAS (Dipaku di 18% dari atas layaknya iOS native) -->
+  <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
     <div class="relative w-[320px] h-[320px]">
       
       <!-- Garis Penunjuk Utara di Paling Atas -->
@@ -148,17 +148,18 @@
     </div>
   </div>
 
-  <!-- CONTAINER TEKS DIBAWAH (Didorong paksa 50px ke bawah biar jarak tetap sama) -->
-  <div class="absolute bottom-[calc(10vh-50px)] left-0 w-full flex flex-col items-center z-20">
+  <!-- CONTAINER TEKS DIBAWAH -->
+  <!-- Pakai inline style murni buat maksain nempel di area bawah iPhone, biar ngga ada lagi masalah gabisa dipindah -->
+  <div class="absolute left-0 w-full flex flex-col items-center z-20" style="bottom: calc(env(safe-area-inset-bottom) + 30px);">
     
     <!-- Teks Derajat Besar. Font dibuat sangat tipis (weight: 100) -->
-    <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight mb-7" style="font-size: 5.5rem; font-weight: 100;">0° N</h1>
+    <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
 
     <!-- Blok Info Koordinat, Kota, Elevasi -->
     <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
       <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
       <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
-      <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide">Elevation N/A</p>
+      <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
     </div>
 
   </div>
