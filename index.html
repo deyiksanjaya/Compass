@@ -332,9 +332,9 @@
         container.className = 'label-container';
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
-        // Ukuran font N E W S diperkecil jadi 26px
-        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[26px] font-normal' : 'text-[14px] font-medium text-gray-200'}`;
-        // Margin huruf ditarik lebih jauh ke pinggir (dari -70 jadi -98)
+        // Ukuran font N E W S diperkecil jadi 22px
+        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[22px] font-medium' : 'text-[15px] font-medium text-gray-200'}`;
+        // Margin dipertahankan di -98 biar mepet ring
         textSpan.style.marginTop = `${label.outer ? -165 : -98}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
