@@ -60,7 +60,8 @@
   </style>
 
 </head>
-<body class="fixed inset-0 flex flex-col items-center select-none overflow-hidden">
+<!-- Padding bawah dihapus biar gak nyesak ke atas, pakai flex justify-center aja dgn flex-spacer -->
+<body class="fixed inset-0 flex flex-col items-center select-none overflow-hidden bg-black">
 
   <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="startAppManual()">
@@ -121,8 +122,8 @@
     </div>
   </div>
 
-  <!-- Spacer Atas Dinamis (Bikin layout selalu ke tengah kayak referensi) -->
-  <div class="flex-[0.8]"></div>
+  <!-- Spacer Atas: Dikasih rasio lebih gede biar kompas agak turun dikit -->
+  <div class="flex-[1.2] w-full min-h-[20px]"></div>
 
   <!-- UI Kompas Utama -->
   <div class="relative w-[320px] h-[320px] shrink-0 pointer-events-none">
@@ -137,13 +138,10 @@
 
     <!-- Area Crosshair & Waterpas Level -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
-      <!-- Garis Crosshair Horizontal & Vertikal Besar -->
       <div class="absolute w-[180px] h-[1px] bg-white opacity-20"></div>
       <div class="absolute w-[1px] h-[180px] bg-white opacity-20"></div>
       
-      <!-- Gelembung / Circle Level Indicator -->
       <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-        <!-- Crosshair Kecil di tengah gelembung -->
         <div class="relative w-[18px] h-[18px]">
           <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
           <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
@@ -152,17 +150,17 @@
     </div>
   </div>
 
-  <!-- Jarak Fix antara Kompas & Teks (Sesuai Referensi) -->
-  <div class="h-[8vh] min-h-[40px] shrink-0"></div>
+  <!-- Jarak Fix antara Kompas & Teks Derajat Besar (Dideketin sesuai referensi) -->
+  <div class="h-[30px] shrink-0 w-full"></div>
 
   <!-- Area Teks Detail -->
   <div class="flex flex-col items-center shrink-0 w-full px-4">
     
-    <!-- Teks Derajat Besar (Tap ini untuk nge-arm Magic) -->
-    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight mb-7" style="font-size: 5rem; font-weight: 200;">0° N</h1>
+    <!-- Teks Derajat Besar -->
+    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight" style="font-size: 5.2rem; font-weight: 200; margin-bottom: 24px;">0° N</h1>
 
     <!-- Blok Info Koordinat, Kota, Elevasi -->
-    <div class="flex flex-col items-center justify-center text-[17px] font-medium text-white space-y-2 pointer-events-auto">
+    <div class="flex flex-col items-center justify-center text-[17px] font-medium text-white pointer-events-auto" style="gap: 8px;">
       <p id="coordsText" class="tracking-wide">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
       <p id="cityText" class="tracking-wide">Locating...</p>
       <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide">Elevation N/A</p>
@@ -170,8 +168,8 @@
 
   </div>
 
-  <!-- Spacer Bawah Dinamis -->
-  <div class="flex-[1]"></div>
+  <!-- Spacer Bawah: Rasio lebih kecil dari spacer atas biar gak nyundul -->
+  <div class="flex-[1] w-full min-h-[20px]"></div>
 
   <script>
     const labels = [
@@ -199,7 +197,7 @@
     } catch(e){}
 
     let mState = 'IDLE'; 
-    let isArmed = false; // Toggle untuk trik
+    let isArmed = false; 
     
     let rawBeta = 0, rawGamma = 0;
     let tiltStart = 0;
@@ -237,7 +235,6 @@
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
 
-    // Tap 1x untuk siapin magic
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
         isArmed = true;
@@ -319,7 +316,6 @@
         ctx.translate(160, 160);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
-        // Bikin garis sedikit lebih presisi mirip ori
         ctx.lineWidth = (i % 30 === 0) ? 2 : 1;
         ctx.moveTo(0, -135);
         ctx.lineTo(0, -118);
@@ -328,7 +324,7 @@
       }
       ctx.save();
       ctx.translate(160, 160);
-      ctx.fillStyle = '#ff3b30'; // Warna merah khas iOS
+      ctx.fillStyle = '#ff3b30';
       ctx.beginPath();
       ctx.moveTo(0, -148);
       ctx.lineTo(-5, -138); 
@@ -512,7 +508,6 @@
       let bX = -rawGamma * sensitivity;
       let bY = rawBeta * sensitivity;
 
-      // Batasin gerak bubble biar sesuai mangkuk
       let maxRadius = 60;
       let dist = Math.sqrt(bX * bX + bY * bY);
       if (dist > maxRadius) {
