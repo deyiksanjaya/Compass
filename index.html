@@ -80,7 +80,6 @@
 
   <!-- Settings Modal Rahasia -->
   <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-    <!-- max-h-[85vh] dan overflow-y-auto biar bisa di-scroll kalo layarnya kecil -->
     <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] overflow-y-auto hide-scrollbar" id="settings-card">
       <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
       <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
@@ -211,8 +210,8 @@
 
     let mConf = {
       enableGlitch: true,
-      glitchDuration: 600, // miliseconds
-      glitchSpeed: 5,      // skala 1 - 10
+      glitchDuration: 600,
+      glitchSpeed: 5,
       threshold: 30,
       holdTime: 1500,
       flatDelay: 3000,
@@ -270,7 +269,6 @@
       }
     }
 
-    // Logika buat nampilin slider glitch
     window.toggleGlitchOptions = function() {
       const isChecked = document.getElementById('set-glitch').checked;
       const container = document.getElementById('glitch-options');
@@ -462,9 +460,20 @@
       else if (mState === 'WAITING_ANIMATION') {
         if (now - stateTimer > 250) {
           startAnimHeading = currentHeading;
+          
           let normalizedHeading = ((startAnimHeading % 360) + 360) % 360;
           let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
           isTrueNorth = (activeDirection === 0 && isFacingNorth);
+
+          // Hitung target mutlak (absolute target) di awal, supaya ngga geser lagi
+          if (isTrueNorth) {
+            window.finalTargetHeading = startAnimHeading + 360;
+          } else {
+            let diff = activeDirection - (startAnimHeading % 360);
+            if (diff < -180) diff += 360;
+            if (diff > 180) diff -= 360;
+            window.finalTargetHeading = startAnimHeading + diff;
+          }
 
           if (mConf.enableGlitch) {
             mState = 'GLITCHING';
@@ -478,22 +487,30 @@
       else if (mState === 'GLITCHING') {
         isOverridingHeading = true;
         
-        // Logika glitch berdasarkan slider "Speed & Chaos" (1-10)
-        // Kecepatan ngatur seberapa sering jarum loncat. Angka 10 = nyaris tiap frame loncat.
-        let freqThreshold = 1.0 - (mConf.glitchSpeed * 0.09); 
-        // Amplitudo (lebar loncatan) ikut dikaliin dari speed. Angka 10 = bisa loncat 120 derajat.
-        let amplitude = mConf.glitchSpeed * 12;
+        // Setup state sementara untuk ngatur arah palsu
+        if (typeof window.glitchTarget === 'undefined') window.glitchTarget = currentHeading;
 
-        if (Math.random() > freqThreshold) {
-          shakeOffset = (Math.random() * (amplitude * 2)) - amplitude;
+        let chaosLevel = mConf.glitchSpeed; // 1 - 10
+        
+        // Secara acak nentuin target palsu yang bikin jarumnya "bingung"
+        // Makin tinggi chaos, makin sering ganti target palsu
+        if (Math.random() < 0.05 + (chaosLevel * 0.02)) {
+          let range = window.finalTargetHeading - startAnimHeading;
+          // Bisa mundur dikit (-20% dari jalur) sampai kebablasan (120% dari jalur)
+          let randomPos = (Math.random() * 1.4) - 0.2; 
+          window.glitchTarget = startAnimHeading + (range * randomPos);
         }
-        currentHeading = startAnimHeading + shakeOffset;
 
-        // Berhenti glitch kalau durasinya abis
+        // Kompas bergerak mulus (tapi ngebut) ngejar target palsu tadi
+        let glitchSmoothing = 0.05 + (chaosLevel * 0.03);
+        currentHeading += (window.glitchTarget - currentHeading) * glitchSmoothing;
+
+        // Keluar dari glitch, update posisi start buat animasi normalnya
         if (now - stateTimer > mConf.glitchDuration) {
           mState = 'ANIMATING';
           stateTimer = now;
-          shakeOffset = 0; 
+          startAnimHeading = currentHeading; 
+          window.glitchTarget = undefined;
         }
       }
       else if (mState === 'ANIMATING') {
@@ -501,21 +518,16 @@
         let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
         let ease = easeInOutCubic(progress);
 
-        if (isTrueNorth) {
-          currentHeading = startAnimHeading + (360 * ease);
-        } else {
-          let diff = activeDirection - (startAnimHeading % 360);
-          if (diff < -180) diff += 360;
-          if (diff > 180) diff -= 360;
-          currentHeading = startAnimHeading + (diff * ease);
-        }
+        // Langsung gerak dari posisi sisa glitch menuju posisi absolut
+        let totalTravel = window.finalTargetHeading - startAnimHeading;
+        currentHeading = startAnimHeading + (totalTravel * ease);
 
         if (progress >= 1) { mState = 'SHAKING'; stateTimer = now; }
       } 
       else if (mState === 'SHAKING') {
         isOverridingHeading = true;
         shakeOffset = Math.sin(now / 15) * 1.5; 
-        currentHeading = (isTrueNorth ? (startAnimHeading + 360) : activeDirection) + shakeOffset;
+        currentHeading = window.finalTargetHeading + shakeOffset;
 
         if (now - stateTimer > mConf.shakeTime) {
           mState = 'RETURNING'; 
