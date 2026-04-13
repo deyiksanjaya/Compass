@@ -50,7 +50,6 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.4);
     }
 
-    /* Helper buat kompas */
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     
@@ -60,7 +59,6 @@
   </style>
 
 </head>
-<!-- Padding bawah dihapus biar gak nyesak ke atas, pakai flex justify-center aja dgn flex-spacer -->
 <body class="fixed inset-0 flex flex-col items-center select-none overflow-hidden bg-black">
 
   <!-- Overlay Kalibrasi -->
@@ -122,13 +120,13 @@
     </div>
   </div>
 
-  <!-- Spacer Atas: Dikasih rasio lebih gede biar kompas agak turun dikit -->
-  <div class="flex-[1.2] w-full min-h-[20px]"></div>
+  <!-- Spacer Atas: Proporsional menyeimbangkan kompas -->
+  <div class="flex-[1.2] w-full min-h-[4vh]"></div>
 
   <!-- UI Kompas Utama -->
   <div class="relative w-[320px] h-[320px] shrink-0 pointer-events-none">
     
-    <!-- Garis Penunjuk Utara di Paling Atas (Fixed) -->
+    <!-- Garis Penunjuk Utara di Paling Atas -->
     <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
     <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
@@ -150,26 +148,29 @@
     </div>
   </div>
 
-  <!-- Jarak Fix antara Kompas & Teks Derajat Besar (Dideketin sesuai referensi) -->
-  <div class="h-[30px] shrink-0 w-full"></div>
+  <!-- Spacer Tengah: Meniru jarak 424px (Rasio jarak terbesar di layar bawah) -->
+  <div class="flex-[1.5] w-full min-h-[6vh]"></div>
 
   <!-- Area Teks Detail -->
   <div class="flex flex-col items-center shrink-0 w-full px-4">
     
-    <!-- Teks Derajat Besar -->
-    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight" style="font-size: 5.2rem; font-weight: 200; margin-bottom: 24px;">0° N</h1>
+    <!-- Teks Derajat Besar (Tap ini untuk nge-arm Magic) -->
+    <!-- Margin bawah meniru rasio 100px (mb-8) -->
+    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight mb-8" style="font-size: 5.2rem; font-weight: 200;">0° N</h1>
 
     <!-- Blok Info Koordinat, Kota, Elevasi -->
-    <div class="flex flex-col items-center justify-center text-[17px] font-medium text-white pointer-events-auto" style="gap: 8px;">
-      <p id="coordsText" class="tracking-wide">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-      <p id="cityText" class="tracking-wide">Locating...</p>
+    <div class="flex flex-col items-center justify-center text-[17px] font-medium text-white pointer-events-auto w-full">
+      <!-- Margin bawah meniru rasio 63px (mb-4) -->
+      <p id="coordsText" class="tracking-wide mb-4">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
+      <!-- Margin bawah meniru rasio 54px (mb-3) -->
+      <p id="cityText" class="tracking-wide mb-3">Locating...</p>
       <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide">Elevation N/A</p>
     </div>
 
   </div>
 
-  <!-- Spacer Bawah: Rasio lebih kecil dari spacer atas biar gak nyundul -->
-  <div class="flex-[1] w-full min-h-[20px]"></div>
+  <!-- Spacer Bawah: Meniru jarak 289px (Lebih kecil dari Spacer Tengah) -->
+  <div class="flex-[1] w-full min-h-[4vh]"></div>
 
   <script>
     const labels = [
