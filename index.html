@@ -24,22 +24,17 @@
       overflow: hidden;
       touch-action: none;
     }
+    
     #calibration-overlay {
       position: absolute; inset: 0; background-color: #000; z-index: 100;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: opacity 0.3s;
     }
-    .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-    .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
-    .font-ios-thin { font-weight: 100; letter-spacing: -2px; }
-    
-    #magic-indicator {
-      transition: opacity 0.15s ease-in-out;
-    }
 
+    /* Kustomisasi Slider iOS Style */
     input[type=range] {
       -webkit-appearance: none;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.15);
       border-radius: 8px;
       height: 6px;
       outline: none;
@@ -47,18 +42,25 @@
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       background: #ffffff;
       cursor: pointer;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+    }
+
+    /* Helper buat kompas */
+    .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+    .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
+    
+    #magic-indicator {
+      transition: opacity 0.2s ease-in-out;
     }
   </style>
 
 </head>
-<!-- Ubah justify jadi flex-start dan pakai padding-bottom sesuai rasio (289px / 2.2 = ~130px) -->
-<body class="fixed inset-0 flex flex-col items-center justify-start select-none overflow-hidden pb-[130px]">
+<body class="fixed inset-0 flex flex-col items-center select-none overflow-hidden">
 
   <!-- Overlay Kalibrasi -->
   <div id="calibration-overlay" onclick="startAppManual()">
@@ -119,45 +121,57 @@
     </div>
   </div>
 
-  <!-- UI Kompas Utama (Margin-top dial disesuaikan biar seimbang di atas) -->
-  <div class="relative w-[340px] h-[340px] pointer-events-none mt-[6vh] shrink-0">
-    <div class="absolute top-[0px] left-1/2 -translate-x-1/2 w-[2.5px] h-[55px] bg-white z-20"></div>
+  <!-- Spacer Atas Dinamis (Bikin layout selalu ke tengah kayak referensi) -->
+  <div class="flex-[0.8]"></div>
+
+  <!-- UI Kompas Utama -->
+  <div class="relative w-[320px] h-[320px] shrink-0 pointer-events-none">
+    
+    <!-- Garis Penunjuk Utara di Paling Atas (Fixed) -->
+    <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
     <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
-      <canvas id="ticksCanvas" width="340" height="340" class="absolute inset-0"></canvas>
+      <canvas id="ticksCanvas" width="320" height="320" class="absolute inset-0"></canvas>
       <div id="labelsContainer" class="absolute inset-0"></div>
     </div>
 
-    <!-- Waterpas -->
+    <!-- Area Crosshair & Waterpas Level -->
     <div class="absolute inset-0 flex items-center justify-center z-0">
-      <div class="absolute w-[160px] h-[1px] bg-white opacity-30"></div>
-      <div class="absolute w-[1px] h-[160px] bg-white opacity-30"></div>
+      <!-- Garis Crosshair Horizontal & Vertikal Besar -->
+      <div class="absolute w-[180px] h-[1px] bg-white opacity-20"></div>
+      <div class="absolute w-[1px] h-[180px] bg-white opacity-20"></div>
       
-      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85px] h-[85px] bg-[#1e1e1e]/90 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-        <div class="relative w-5 h-5">
-          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-70"></div>
-          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-70"></div>
+      <!-- Gelembung / Circle Level Indicator -->
+      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
+        <!-- Crosshair Kecil di tengah gelembung -->
+        <div class="relative w-[18px] h-[18px]">
+          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
+          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Spacing Fleksibel buat ngedorong teks ke bawah -->
-  <div class="flex-grow"></div>
+  <!-- Jarak Fix antara Kompas & Teks (Sesuai Referensi) -->
+  <div class="h-[8vh] min-h-[40px] shrink-0"></div>
 
-  <!-- Detail Teks -->
-  <!-- Margin antar teks dikonversi dari foto (dibagi ~2.2 biar pas di ukuran layar standar) -->
-  <div class="text-center w-full px-4 shrink-0 flex flex-col items-center">
+  <!-- Area Teks Detail -->
+  <div class="flex flex-col items-center shrink-0 w-full px-4">
     
-    <!-- Tap to Arm Magic -->
-    <h1 id="headingText" onclick="armMagic()" class="font-ios-thin leading-none pointer-events-auto" style="font-size: clamp(3.5rem, 16vw, 4.8rem); margin-bottom: 45px;">0° N</h1>
+    <!-- Teks Derajat Besar (Tap ini untuk nge-arm Magic) -->
+    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight mb-7" style="font-size: 5rem; font-weight: 200;">0° N</h1>
 
-    <div class="flex flex-col items-center justify-center text-[19px] font-medium tracking-wide text-white w-full">
-      <p id="coordsText" class="pointer-events-auto" style="margin-bottom: 28px;">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-      <p id="cityText" class="pointer-events-auto" style="margin-bottom: 24px;">Locating...</p>
-      <p id="elevationText" onclick="handleElevationTap()" class="pointer-events-auto">Elevation N/A</p>
+    <!-- Blok Info Koordinat, Kota, Elevasi -->
+    <div class="flex flex-col items-center justify-center text-[17px] font-medium text-white space-y-2 pointer-events-auto">
+      <p id="coordsText" class="tracking-wide">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
+      <p id="cityText" class="tracking-wide">Locating...</p>
+      <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide">Elevation N/A</p>
     </div>
+
   </div>
+
+  <!-- Spacer Bawah Dinamis -->
+  <div class="flex-[1]"></div>
 
   <script>
     const labels = [
@@ -185,7 +199,7 @@
     } catch(e){}
 
     let mState = 'IDLE'; 
-    let isArmed = false; // Status siap jalanin magic trik
+    let isArmed = false; // Toggle untuk trik
     
     let rawBeta = 0, rawGamma = 0;
     let tiltStart = 0;
@@ -194,7 +208,7 @@
     let startAnimHeading = 0;
     let isTrueNorth = false;
     let shakeOffset = 0;
-    let magicIndicatorEl = document.getElementById('magic-indicator');
+    let magicIndicatorEl = null;
 
     let tapCount = 0;
     let tapTimeout = null;
@@ -223,12 +237,11 @@
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
 
-    // Fungsi rahasia untuk "mengunci" trik
+    // Tap 1x untuk siapin magic
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
         isArmed = true;
-        // Opsional: console log aja buat lo ngetes pas ngetes di dev tools
-        console.log("Magic Armed!"); 
+        console.log("Magic is armed! Tilt now."); 
       }
     }
 
@@ -256,10 +269,6 @@
     }
 
     function closeSettings() {
-      if (document.activeElement) document.activeElement.blur();
-      window.scrollTo(0, 0);
-      document.body.scrollTop = 0;
-
       settingsModal.classList.add('opacity-0');
       settingsCard.classList.remove('scale-100');
       settingsCard.classList.add('scale-95');
@@ -290,11 +299,11 @@
       localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
       closeSettings();
       mState = 'IDLE';
-      isArmed = false; // Reset toggle kalo setting berubah
+      isArmed = false;
     }
 
     window.resetApp = function() {
-      if(confirm("Are you sure you want to reset all settings? The app will reload.")) {
+      if(confirm("Are you sure you want to reset all settings?")) {
         localStorage.clear();
         location.reload();
       }
@@ -303,38 +312,40 @@
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, 340, 340);
+      ctx.clearRect(0, 0, 320, 320);
       ctx.strokeStyle = '#ffffff';
       for (let i = 0; i < 360; i += 2) {
         ctx.save();
-        ctx.translate(170, 170);
+        ctx.translate(160, 160);
         ctx.rotate(i * Math.PI / 180);
         ctx.beginPath();
-        ctx.lineWidth = (i % 30 === 0) ? 2.5 : 1;
+        // Bikin garis sedikit lebih presisi mirip ori
+        ctx.lineWidth = (i % 30 === 0) ? 2 : 1;
         ctx.moveTo(0, -135);
-        ctx.lineTo(0, -115);
+        ctx.lineTo(0, -118);
         ctx.stroke();
         ctx.restore();
       }
       ctx.save();
-      ctx.translate(170, 170);
-      ctx.fillStyle = '#ff453a';
+      ctx.translate(160, 160);
+      ctx.fillStyle = '#ff3b30'; // Warna merah khas iOS
       ctx.beginPath();
-      ctx.moveTo(0, -145);
-      ctx.lineTo(-5, -137); 
-      ctx.lineTo(5, -137);  
+      ctx.moveTo(0, -148);
+      ctx.lineTo(-5, -138); 
+      ctx.lineTo(5, -138);  
       ctx.fill();
       ctx.restore();
     }
 
     function initLabels() {
+      labelsContainer.innerHTML = '';
       labels.forEach(label => {
         const container = document.createElement('div');
         container.className = 'label-container';
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
-        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[15px] font-medium'}`;
-        textSpan.style.marginTop = `${label.outer ? -165 : -75}px`; 
+        textSpan.className = `label-text ${label.type === 'letter' ? 'text-[32px] font-normal' : 'text-[14px] font-medium text-gray-200'}`;
+        textSpan.style.marginTop = `${label.outer ? -165 : -70}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         container.appendChild(textSpan);
@@ -352,6 +363,8 @@
     function renderLoop() {
       if (!isRunning) return;
       const now = Date.now();
+      
+      if(!magicIndicatorEl) magicIndicatorEl = document.getElementById('magic-indicator');
 
       if (magicIndicatorEl) {
         if (mState === 'TILTING' || mState === 'BLINKING_INDICATOR') {
@@ -365,7 +378,6 @@
       let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
-        // Cuma bakal baca kemiringan kalau isArmed == true (udah di-tap)
         if (isArmed) {
           if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
           else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
@@ -452,7 +464,7 @@
         currentHeading = startAnimHeading + (diff * ease);
         if (progress >= 1) {
           mState = 'IDLE';
-          isArmed = false; // Matikan toggle setelah sulap berhasil selesai
+          isArmed = false; 
         }
       }
 
@@ -500,7 +512,8 @@
       let bX = -rawGamma * sensitivity;
       let bY = rawBeta * sensitivity;
 
-      let maxRadius = 55;
+      // Batasin gerak bubble biar sesuai mangkuk
+      let maxRadius = 60;
       let dist = Math.sqrt(bX * bX + bY * bY);
       if (dist > maxRadius) {
         bX = (bX / dist) * maxRadius;
