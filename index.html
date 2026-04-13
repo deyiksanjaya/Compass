@@ -120,8 +120,8 @@
     </div>
   </div>
 
-  <!-- CONTAINER KOMPAS DIATAS (Dipaku di 12% dari atas) -->
-  <div class="absolute top-[12vh] left-0 w-full flex justify-center z-10 pointer-events-none">
+  <!-- CONTAINER KOMPAS DIATAS (Turun ke 18% dari atas) -->
+  <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
     <div class="relative w-[320px] h-[320px]">
       
       <!-- Garis Penunjuk Utara di Paling Atas -->
@@ -148,11 +148,11 @@
     </div>
   </div>
 
-  <!-- CONTAINER TEKS DIBAWAH (Dipaku di 10% dari bawah) -->
+  <!-- CONTAINER TEKS DIBAWAH (Tetap dipaku di 10% dari bawah) -->
   <div class="absolute bottom-[10vh] left-0 w-full flex flex-col items-center z-20">
     
-    <!-- Teks Derajat Besar (Tap ini untuk nge-arm Magic) -->
-    <h1 id="headingText" onclick="armMagic()" class="font-light leading-none pointer-events-auto tracking-tight mb-7" style="font-size: 5.5rem;">0° N</h1>
+    <!-- Teks Derajat Besar (Tap ini untuk nge-arm Magic). Diubah jadi font-thin (weight 100) -->
+    <h1 id="headingText" onclick="armMagic()" class="font-thin leading-none pointer-events-auto tracking-tight mb-7" style="font-size: 5.5rem; font-weight: 100;">0° N</h1>
 
     <!-- Blok Info Koordinat, Kota, Elevasi -->
     <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
