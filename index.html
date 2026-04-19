@@ -22,7 +22,7 @@
       color: #fff;
       margin: 0;
       overflow: hidden;
-      touch-action: none;
+      overscroll-behavior: none; /* Mencegah pull-to-refresh */
     }
     
     #calibration-overlay {
@@ -68,17 +68,66 @@
 </head>
 <body class="fixed inset-0 bg-black select-none overflow-hidden text-white">
 
-  <!-- Overlay Kalibrasi -->
-  <div id="calibration-overlay" onclick="startAppManual()">
-    <div class="text-center">
-      <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-      <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
+  <!-- APP CONTAINER (Area kompas yang ga boleh scroll) -->
+  <div id="app-container" class="absolute inset-0 z-0" style="touch-action: none;">
+    
+    <!-- Overlay Kalibrasi -->
+    <div id="calibration-overlay" onclick="startAppManual()">
+      <div class="text-center">
+        <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
+      </div>
     </div>
-  </div>
 
-  <!-- Settings Modal Rahasia Fullscreen -->
-  <div id="settings-modal" class="fixed inset-0 w-full h-[100dvh] bg-[#1c1c1e] z-[999] hidden flex-col opacity-0 transition-opacity duration-300">
-    <div class="w-full h-full max-w-md mx-auto px-6 py-12 flex flex-col transform translate-y-10 transition-transform duration-300 overflow-y-auto hide-scrollbar" id="settings-card">
+    <!-- CONTAINER KOMPAS -->
+    <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
+      <div class="relative w-[320px] h-[320px]">
+        
+        <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
+
+        <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
+          <canvas id="ticksCanvas" width="320" height="320" class="absolute inset-0"></canvas>
+          <div id="labelsContainer" class="absolute inset-0"></div>
+        </div>
+
+        <div class="absolute inset-0 flex items-center justify-center z-[-1]">
+          <div class="absolute w-[180px] h-[1px] bg-white/40"></div>
+          <div class="absolute w-[1px] h-[180px] bg-white/40"></div>
+          
+          <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
+            <div class="relative w-[18px] h-[18px]">
+              <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
+              <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CONTAINER TEKS DIBAWAH -->
+    <div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
+      
+      <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
+
+      <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
+        <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
+        <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
+        <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
+      </div>
+
+    </div>
+
+  </div> <!-- End App Container -->
+
+
+  <!-- SETTINGS MODAL RAHASIA FULLSCREEN -->
+  <!-- Container ini punya touch-action: pan-y biar bisa di-scroll -->
+  <div id="settings-modal" class="fixed inset-0 bg-[#1c1c1e] z-[999] hidden overflow-y-auto hide-scrollbar opacity-0 transition-opacity duration-300" style="touch-action: pan-y;">
+    
+    <!-- Wrapper konten yang ngatur layout dan animasi slide -->
+    <div id="settings-content" class="min-h-full flex flex-col max-w-md mx-auto px-6 pt-12 pb-[max(env(safe-area-inset-bottom),2rem)] transform translate-y-10 transition-transform duration-300">
+      
       <h2 class="text-[32px] font-bold text-white mb-1 mt-4">Magic Settings</h2>
       <p class="text-[15px] text-gray-400 mb-8">Configure the secret compass behavior.</p>
 
@@ -159,50 +208,13 @@
         </div>
       </div>
 
-      <div class="mt-12 mb-4 space-y-3 pb-8">
+      <!-- Tombol ini selalu nyurung ke paling bawah layar kalo ada sisa space -->
+      <div class="mt-auto pt-10 space-y-3">
         <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-4 px-4 rounded-[14px] text-[17px] transition-colors">Save & Close</button>
         <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-[14px] text-[16px] transition-colors">Reset to Defaults</button>
       </div>
-    </div>
-  </div>
-
-  <!-- CONTAINER KOMPAS -->
-  <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
-    <div class="relative w-[320px] h-[320px]">
-      
-      <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
-
-      <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
-        <canvas id="ticksCanvas" width="320" height="320" class="absolute inset-0"></canvas>
-        <div id="labelsContainer" class="absolute inset-0"></div>
-      </div>
-
-      <div class="absolute inset-0 flex items-center justify-center z-[-1]">
-        <div class="absolute w-[180px] h-[1px] bg-white/40"></div>
-        <div class="absolute w-[1px] h-[180px] bg-white/40"></div>
-        
-        <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-          <div class="relative w-[18px] h-[18px]">
-            <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
-            <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
-          </div>
-        </div>
-      </div>
 
     </div>
-  </div>
-
-  <!-- CONTAINER TEKS DIBAWAH -->
-  <div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
-    
-    <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
-
-    <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
-      <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-      <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
-      <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
-    </div>
-
   </div>
 
   <script>
@@ -276,7 +288,7 @@
     const elevationText = document.getElementById('elevationText');
     const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
-    const settingsCard = document.getElementById('settings-card');
+    const settingsContent = document.getElementById('settings-content');
 
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
@@ -315,26 +327,27 @@
       
       toggleGlitchOptions();
 
+      // Show container (display: block instead of flex now)
       settingsModal.classList.remove('hidden');
-      settingsModal.classList.add('flex');
+      settingsModal.classList.add('block');
       
       requestAnimationFrame(() => {
         settingsModal.classList.remove('opacity-0');
         // Slide up animation
-        settingsCard.classList.remove('translate-y-10');
-        settingsCard.classList.add('translate-y-0');
+        settingsContent.classList.remove('translate-y-10');
+        settingsContent.classList.add('translate-y-0');
       });
     }
 
     function closeSettings() {
       settingsModal.classList.add('opacity-0');
       // Slide down animation
-      settingsCard.classList.remove('translate-y-0');
-      settingsCard.classList.add('translate-y-10');
+      settingsContent.classList.remove('translate-y-0');
+      settingsContent.classList.add('translate-y-10');
       
       setTimeout(() => {
         settingsModal.classList.add('hidden');
-        settingsModal.classList.remove('flex');
+        settingsModal.classList.remove('block');
       }, 300);
     }
 
@@ -374,6 +387,7 @@
 
     // --- SWIPE EVENT LISTENERS ---
     document.addEventListener('touchstart', e => {
+      // Ignore kalo tap di dalem menu settings
       if (e.target.closest('#settings-modal')) return;
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
@@ -393,10 +407,10 @@
 
       if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
         if (Math.abs(dx) > Math.abs(dy)) {
-          // Horizontal Swipe
+          // Horizontal Swipe (kanan 270, kiri 90)
           activeDirection = dx > 0 ? 270 : 90; 
         } else {
-          // Vertical Swipe
+          // Vertical Swipe (bawah 180, atas 0)
           activeDirection = dy > 0 ? 180 : 0; 
         }
         
