@@ -22,7 +22,7 @@
       color: #fff;
       margin: 0;
       overflow: hidden;
-      touch-action: none;
+      touch-action: none; /* Mencegah layar ke-scroll atau pull-to-refresh pas lagi swipe */
     }
     
     #calibration-overlay {
@@ -57,7 +57,6 @@
       transition: opacity 0.2s ease-in-out;
     }
 
-    /* Sembunyikan scrollbar di menu settings biar tetap elegan */
     .hide-scrollbar::-webkit-scrollbar {
       display: none;
     }
@@ -83,6 +82,15 @@
     <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] overflow-y-auto hide-scrollbar" id="settings-card">
       <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
       <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
+
+      <!-- Toggle Swipe Input -->
+      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
+        <label class="text-[15px] font-medium text-white">Swipe Input (Up/Dn/L/R)</label>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="set-swipe" class="sr-only peer">
+          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+        </label>
+      </div>
 
       <!-- Toggle Glitch -->
       <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
@@ -184,8 +192,9 @@
   </div>
 
   <!-- CONTAINER TEKS DIBAWAH -->
-  <div class="absolute left-0 w-full flex flex-col items-center z-20" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
+  <div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
     
+    <!-- pointer-events-auto ditambahin biar tetep bisa ditap buat gyro -->
     <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
 
     <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
@@ -209,6 +218,7 @@
     ];
 
     let mConf = {
+      enableSwipe: true,
       enableGlitch: true,
       glitchDuration: 600,
       glitchSpeed: 5,
@@ -252,6 +262,11 @@
     let watchdogTimer = null;
     let altitudeFetched = false;
 
+    // --- SWIPE VARIABLES ---
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const SWIPE_THRESHOLD = 40; // Sensitivitas minimum jarak swipe (px)
+
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
     const headingText = document.getElementById('headingText');
@@ -263,6 +278,7 @@
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
 
+    // Buat input gyro tetep harus tap heading text
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
         isArmed = true;
@@ -280,6 +296,7 @@
     }
 
     function openSettings() {
+      document.getElementById('set-swipe').checked = mConf.enableSwipe;
       document.getElementById('set-glitch').checked = mConf.enableGlitch;
       document.getElementById('set-g-dur').value = mConf.glitchDuration / 1000;
       document.getElementById('set-g-spd').value = mConf.glitchSpeed;
@@ -331,6 +348,7 @@
     }
 
     window.saveSettings = function() {
+      mConf.enableSwipe = document.getElementById('set-swipe').checked;
       mConf.enableGlitch = document.getElementById('set-glitch').checked;
       mConf.glitchDuration = parseFloat(document.getElementById('set-g-dur').value) * 1000;
       mConf.glitchSpeed = parseInt(document.getElementById('set-g-spd').value);
@@ -352,6 +370,47 @@
         location.reload();
       }
     }
+
+    // --- SWIPE EVENT LISTENERS ---
+    // Dipasang di 'document' biar nangkap di seluruh area layar
+    document.addEventListener('touchstart', e => {
+      // Jangan trigger kalau lagi di dalem menu settings
+      if (e.target.closest('#settings-modal')) return;
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    }, {passive: false});
+
+    document.addEventListener('touchend', e => {
+      if (e.target.closest('#settings-modal')) return;
+      
+      // Syarat isArmed dibuang dari sini, 
+      // jadi kapan aja layarnya di-swipe, dia tetep ngebaca.
+      if (!mConf.enableSwipe) return;
+      
+      // Kasih toleransi, kalau status masih IDLE atau udah keburu LOCKED (misal mau ralat swipe), tetep terima input
+      if (mState !== 'IDLE' && mState !== 'LOCKED') return;
+
+      let touchEndX = e.changedTouches[0].screenX;
+      let touchEndY = e.changedTouches[0].screenY;
+
+      let dx = touchEndX - touchStartX;
+      let dy = touchEndY - touchStartY;
+
+      if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal Swipe
+          activeDirection = dx > 0 ? 90 : 270; // Kanan (E), Kiri (W)
+        } else {
+          // Vertical Swipe
+          activeDirection = dy > 0 ? 180 : 0; // Bawah (S), Atas (N)
+        }
+        
+        // Auto-arm dan langsung lompat ke state LOCKED
+        isArmed = true;
+        mState = 'LOCKED';
+        if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
+      }
+    });
 
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
@@ -465,7 +524,6 @@
           let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
           isTrueNorth = (activeDirection === 0 && isFacingNorth);
 
-          // Hitung target mutlak (absolute target) di awal, supaya ngga geser lagi
           if (isTrueNorth) {
             window.finalTargetHeading = startAnimHeading + 360;
           } else {
@@ -487,25 +545,19 @@
       else if (mState === 'GLITCHING') {
         isOverridingHeading = true;
         
-        // Setup state sementara untuk ngatur arah palsu
         if (typeof window.glitchTarget === 'undefined') window.glitchTarget = currentHeading;
 
-        let chaosLevel = mConf.glitchSpeed; // 1 - 10
+        let chaosLevel = mConf.glitchSpeed; 
         
-        // Secara acak nentuin target palsu yang bikin jarumnya "bingung"
-        // Makin tinggi chaos, makin sering ganti target palsu
         if (Math.random() < 0.05 + (chaosLevel * 0.02)) {
           let range = window.finalTargetHeading - startAnimHeading;
-          // Bisa mundur dikit (-20% dari jalur) sampai kebablasan (120% dari jalur)
           let randomPos = (Math.random() * 1.4) - 0.2; 
           window.glitchTarget = startAnimHeading + (range * randomPos);
         }
 
-        // Kompas bergerak mulus (tapi ngebut) ngejar target palsu tadi
         let glitchSmoothing = 0.05 + (chaosLevel * 0.03);
         currentHeading += (window.glitchTarget - currentHeading) * glitchSmoothing;
 
-        // Keluar dari glitch, update posisi start buat animasi normalnya
         if (now - stateTimer > mConf.glitchDuration) {
           mState = 'ANIMATING';
           stateTimer = now;
@@ -518,7 +570,6 @@
         let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
         let ease = easeInOutCubic(progress);
 
-        // Langsung gerak dari posisi sisa glitch menuju posisi absolut
         let totalTravel = window.finalTargetHeading - startAnimHeading;
         currentHeading = startAnimHeading + (totalTravel * ease);
 
