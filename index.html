@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -25,13 +24,14 @@
       overflow: hidden;
       overscroll-behavior: none;
     }
-
+    
     #calibration-overlay {
       position: absolute; inset: 0; background-color: #000; z-index: 100;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: opacity 0.3s;
     }
 
+    /* Kustomisasi Slider iOS Style */
     input[type=range] {
       -webkit-appearance: none;
       background: rgba(255, 255, 255, 0.15);
@@ -52,311 +52,296 @@
 
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
-
+    
     #magic-indicator {
       transition: opacity 0.2s ease-in-out;
     }
 
-    .hide-scrollbar::-webkit-scrollbar { display: none; }
-    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-    /* ── SETTINGS MODAL FIX ── */
-    #settings-modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      width: 100%;
-      height: 100%;
-      /* iOS safe area */
-      height: 100dvh;
-      background-color: #1c1c1e;
-      z-index: 999;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-      transition: opacity 0.3s;
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
     }
-
-    #settings-content {
-      min-height: 100%;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      max-width: 28rem;
-      margin-left: auto;
-      margin-right: auto;
-      padding: 3rem 1.5rem;
-      padding-top: calc(3rem + env(safe-area-inset-top));
-      padding-bottom: calc(2rem + env(safe-area-inset-bottom));
-      box-sizing: border-box;
-      transition: transform 0.3s;
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
   </style>
 
 </head>
 <body class="fixed inset-0 bg-black select-none overflow-hidden text-white">
 
-  <!-- APP CONTAINER -->
-
+  <!-- APP CONTAINER (Area kompas) -->
   <div id="app-container" class="absolute inset-0 z-0" style="touch-action: none;">
-
-```
-<!-- Overlay Kalibrasi -->
-<div id="calibration-overlay" onclick="startAppManual()">
-  <div class="text-center">
-    <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-    </svg>
-    <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
-  </div>
-</div>
-
-<!-- CONTAINER KOMPAS -->
-<div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
-  <div class="relative w-[320px] h-[320px]">
-
-    <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
-
-    <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
-      <canvas id="ticksCanvas" width="320" height="320" class="absolute inset-0"></canvas>
-      <div id="labelsContainer" class="absolute inset-0"></div>
-    </div>
-
-    <div class="absolute inset-0 flex items-center justify-center z-[-1]">
-      <div class="absolute w-[180px] h-[1px] bg-white/40"></div>
-      <div class="absolute w-[1px] h-[180px] bg-white/40"></div>
-
-      <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
-        <div class="relative w-[18px] h-[18px]">
-          <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
-          <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
-        </div>
+    
+    <!-- Overlay Kalibrasi -->
+    <div id="calibration-overlay" onclick="startAppManual()">
+      <div class="text-center">
+        <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
       </div>
     </div>
 
-  </div>
-</div>
+    <!-- CONTAINER KOMPAS -->
+    <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
+      <div class="relative w-[320px] h-[320px]">
+        
+        <div class="absolute top-[-5px] left-1/2 -translate-x-1/2 w-[3px] h-[45px] bg-white z-20"></div>
 
-<!-- CONTAINER TEKS BAWAH -->
-<div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
-
-  <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
-
-  <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
-    <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-    <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
-    <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
-  </div>
-
-</div>
-```
-
-  </div><!-- End App Container -->
-
-  <!-- SETTINGS MODAL FULLSCREEN -->
-
-  <div id="settings-modal" class="hidden opacity-0 hide-scrollbar" style="touch-action: pan-y;">
-
-```
-<div id="settings-content" style="transform: translateY(40px);">
-
-  <h2 class="text-[32px] font-bold text-white mb-1 mt-4">Magic Settings</h2>
-  <p class="text-[15px] text-gray-400 mb-8">Configure the secret compass behavior.</p>
-
-  <div class="flex-1 flex flex-col space-y-6">
-
-    <!-- Toggle Swipe Input -->
-    <div class="flex justify-between items-center bg-white/5 p-4 rounded-[16px]">
-      <label class="text-[16px] font-medium text-white">Swipe Input (Up/Dn/L/R)</label>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" id="set-swipe" class="sr-only peer">
-        <div class="w-12 h-7 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#34c759]"></div>
-      </label>
-    </div>
-
-    <!-- Toggle Glitch -->
-    <div class="flex justify-between items-center bg-white/5 p-4 rounded-[16px]">
-      <label class="text-[16px] font-medium text-white">Glitch Effect</label>
-      <label class="relative inline-flex items-center cursor-pointer">
-        <input type="checkbox" id="set-glitch" class="sr-only peer" onchange="toggleGlitchOptions()">
-        <div class="w-12 h-7 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#34c759]"></div>
-      </label>
-    </div>
-
-    <!-- Glitch Sliders -->
-    <div id="glitch-options" class="space-y-6 pb-6 border-b border-white/10 hidden">
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Glitch Duration</label>
-          <span id="val-g-dur" class="text-[15px] text-[#007aff] font-semibold">0.6s</span>
+        <div id="dial" class="absolute inset-0 w-full h-full z-10 will-change-transform">
+          <canvas id="ticksCanvas" width="320" height="320" class="absolute inset-0"></canvas>
+          <div id="labelsContainer" class="absolute inset-0"></div>
         </div>
-        <input type="range" id="set-g-dur" min="0.1" max="3.0" step="0.1" value="0.6" class="w-full"
-          oninput="document.getElementById('val-g-dur').innerText = parseFloat(this.value).toFixed(1) + 's'">
-      </div>
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Glitch Speed & Chaos</label>
-          <span id="val-g-spd" class="text-[15px] text-[#007aff] font-semibold">5</span>
+
+        <div class="absolute inset-0 flex items-center justify-center z-[-1]">
+          <div class="absolute w-[180px] h-[1px] bg-white/40"></div>
+          <div class="absolute w-[1px] h-[180px] bg-white/40"></div>
+          
+          <div id="level-bubble" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90px] h-[90px] bg-[#1c1c1e] bg-opacity-80 rounded-full flex items-center justify-center shadow-inner will-change-transform">
+            <div class="relative w-[18px] h-[18px]">
+              <div class="absolute top-1/2 left-0 w-full h-[1px] bg-white opacity-50"></div>
+              <div class="absolute top-0 left-1/2 w-[1px] h-full bg-white opacity-50"></div>
+            </div>
+          </div>
         </div>
-        <input type="range" id="set-g-spd" min="1" max="10" step="1" value="5" class="w-full"
-          oninput="document.getElementById('val-g-spd').innerText = this.value">
+
       </div>
     </div>
 
-    <!-- Normal Sliders -->
-    <div class="space-y-6">
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Tilt Threshold</label>
-          <span id="val-threshold" class="text-[15px] text-[#007aff] font-semibold">30°</span>
-        </div>
-        <input type="range" id="set-threshold" min="10" max="80" step="1" value="30" class="w-full"
-          oninput="document.getElementById('val-threshold').innerText = this.value + '°'">
+    <!-- CONTAINER TEKS DIBAWAH -->
+    <div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
+      
+      <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
+
+      <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
+        <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
+        <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
+        <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
       </div>
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Hold Tilt</label>
-          <span id="val-hold" class="text-[15px] text-[#007aff] font-semibold">1.5s</span>
-        </div>
-        <input type="range" id="set-hold" min="0.5" max="5.0" step="0.1" value="1.5" class="w-full"
-          oninput="document.getElementById('val-hold').innerText = parseFloat(this.value).toFixed(1) + 's'">
-      </div>
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Table Delay</label>
-          <span id="val-delay" class="text-[15px] text-[#007aff] font-semibold">3.0s</span>
-        </div>
-        <input type="range" id="set-delay" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full"
-          oninput="document.getElementById('val-delay').innerText = parseFloat(this.value).toFixed(1) + 's'">
-      </div>
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Shake Duration</label>
-          <span id="val-shake" class="text-[15px] text-[#007aff] font-semibold">2.5s</span>
-        </div>
-        <input type="range" id="set-shake" min="0.5" max="8.0" step="0.1" value="2.5" class="w-full"
-          oninput="document.getElementById('val-shake').innerText = parseFloat(this.value).toFixed(1) + 's'">
-      </div>
-      <div>
-        <div class="flex justify-between items-center mb-2">
-          <label class="text-[15px] text-gray-200">Spin Animation</label>
-          <span id="val-anim" class="text-[15px] text-[#007aff] font-semibold">3.0s</span>
-        </div>
-        <input type="range" id="set-anim" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full"
-          oninput="document.getElementById('val-anim').innerText = parseFloat(this.value).toFixed(1) + 's'">
-      </div>
+
     </div>
 
-  </div>
+  </div> <!-- End App Container -->
 
-  <!-- Buttons — pushed to bottom -->
-  <div class="mt-auto pt-10 space-y-3">
-    <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-4 px-4 rounded-[14px] text-[17px] transition-colors">Save & Close</button>
-    <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-[14px] text-[16px] transition-colors">Reset to Defaults</button>
-  </div>
 
-</div>
-```
+  <!-- SETTINGS MODAL RAHASIA (Tampilan Card Centered) -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300" style="touch-action: pan-y;">
+    
+    <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85dvh] overflow-y-auto hide-scrollbar" id="settings-card">
+      <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
+      <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
 
+      <!-- Toggle Swipe Input -->
+      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
+        <label class="text-[15px] font-medium text-white">Swipe Input (Up/Dn/L/R)</label>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="set-swipe" class="sr-only peer">
+          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+        </label>
+      </div>
+
+      <!-- Toggle Glitch -->
+      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
+        <label class="text-[15px] font-medium text-white">Glitch Effect</label>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="set-glitch" class="sr-only peer" onchange="toggleGlitchOptions()">
+          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+        </label>
+      </div>
+
+      <!-- Grup Slider Glitch -->
+      <div id="glitch-options" class="space-y-5 mb-5 pb-5 border-b border-white/10 hidden">
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Glitch Duration</label>
+            <span id="val-g-dur" class="text-[14px] text-[#007aff] font-semibold">0.6s</span>
+          </div>
+          <input type="range" id="set-g-dur" min="0.1" max="3.0" step="0.1" value="0.6" class="w-full" oninput="document.getElementById('val-g-dur').innerText = parseFloat(this.value).toFixed(1) + 's'">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Glitch Speed & Chaos</label>
+            <span id="val-g-spd" class="text-[14px] text-[#007aff] font-semibold">5</span>
+          </div>
+          <input type="range" id="set-g-spd" min="1" max="10" step="1" value="5" class="w-full" oninput="document.getElementById('val-g-spd').innerText = this.value">
+        </div>
+      </div>
+
+      <!-- Grup Slider Normal -->
+      <div class="space-y-5">
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Tilt Threshold</label>
+            <span id="val-threshold" class="text-[14px] text-[#007aff] font-semibold">30°</span>
+          </div>
+          <input type="range" id="set-threshold" min="10" max="80" step="1" value="30" class="w-full" oninput="document.getElementById('val-threshold').innerText = this.value + '°'">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Hold Tilt</label>
+            <span id="val-hold" class="text-[14px] text-[#007aff] font-semibold">1.5s</span>
+          </div>
+          <input type="range" id="set-hold" min="0.5" max="5.0" step="0.1" value="1.5" class="w-full" oninput="document.getElementById('val-hold').innerText = parseFloat(this.value).toFixed(1) + 's'">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Table Delay</label>
+            <span id="val-delay" class="text-[14px] text-[#007aff] font-semibold">3.0s</span>
+          </div>
+          <input type="range" id="set-delay" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full" oninput="document.getElementById('val-delay').innerText = parseFloat(this.value).toFixed(1) + 's'">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Shake Duration</label>
+            <span id="val-shake" class="text-[14px] text-[#007aff] font-semibold">2.5s</span>
+          </div>
+          <input type="range" id="set-shake" min="0.5" max="8.0" step="0.1" value="2.5" class="w-full" oninput="document.getElementById('val-shake').innerText = parseFloat(this.value).toFixed(1) + 's'">
+        </div>
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="text-[14px] text-gray-200">Spin Animation</label>
+            <span id="val-anim" class="text-[14px] text-[#007aff] font-semibold">3.0s</span>
+          </div>
+          <input type="range" id="set-anim" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full" oninput="document.getElementById('val-anim').innerText = parseFloat(this.value).toFixed(1) + 's'">
+        </div>
+      </div>
+
+      <div class="mt-8 space-y-3">
+        <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-3 px-4 rounded-xl text-[16px] transition-colors">Save & Close</button>
+        <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-xl text-[15px] transition-colors">Reset to Defaults</button>
+      </div>
+    </div>
   </div>
 
   <script>
     const labels = [
-      { deg: 0,   text: '0',   type: 'number', outer: true  }, { deg: 30,  text: '30',  type: 'number', outer: true  },
-      { deg: 60,  text: '60',  type: 'number', outer: true  }, { deg: 90,  text: '90',  type: 'number', outer: true  },
-      { deg: 120, text: '120', type: 'number', outer: true  }, { deg: 150, text: '150', type: 'number', outer: true  },
-      { deg: 180, text: '180', type: 'number', outer: true  }, { deg: 210, text: '210', type: 'number', outer: true  },
-      { deg: 240, text: '240', type: 'number', outer: true  }, { deg: 270, text: '270', type: 'number', outer: true  },
-      { deg: 300, text: '300', type: 'number', outer: true  }, { deg: 330, text: '330', type: 'number', outer: true  },
-      { deg: 0,   text: 'N',   type: 'letter', outer: false }, { deg: 90,  text: 'E',   type: 'letter', outer: false },
-      { deg: 180, text: 'S',   type: 'letter', outer: false }, { deg: 270, text: 'W',   type: 'letter', outer: false }
+      { deg: 0, text: '0', type: 'number', outer: true }, { deg: 30, text: '30', type: 'number', outer: true },
+      { deg: 60, text: '60', type: 'number', outer: true }, { deg: 90, text: '90', type: 'number', outer: true },
+      { deg: 120, text: '120', type: 'number', outer: true }, { deg: 150, text: '150', type: 'number', outer: true },
+      { deg: 180, text: '180', type: 'number', outer: true }, { deg: 210, text: '210', type: 'number', outer: true },
+      { deg: 240, text: '240', type: 'number', outer: true }, { deg: 270, text: '270', type: 'number', outer: true },
+      { deg: 300, text: '300', type: 'number', outer: true }, { deg: 330, text: '330', type: 'number', outer: true },
+      { deg: 0, text: 'N', type: 'letter', outer: false }, { deg: 90, text: 'E', type: 'letter', outer: false },
+      { deg: 180, text: 'S', type: 'letter', outer: false }, { deg: 270, text: 'W', type: 'letter', outer: false }
     ];
 
     let mConf = {
-      enableSwipe: true, enableGlitch: true,
-      glitchDuration: 600, glitchSpeed: 5,
-      threshold: 30, holdTime: 1500,
-      flatDelay: 3000, shakeTime: 2500, animTime: 3000
+      enableSwipe: true,
+      enableGlitch: true,
+      glitchDuration: 600,
+      glitchSpeed: 5,
+      threshold: 30,
+      holdTime: 1500,
+      flatDelay: 3000,
+      shakeTime: 2500,
+      animTime: 3000
     };
+
     try {
       const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
-      if (saved) mConf = { ...mConf, ...saved };
-    } catch(e) {}
+      if(saved) mConf = {...mConf, ...saved};
+    } catch(e){}
 
-    let mState = 'IDLE', isArmed = false;
+    let mState = 'IDLE'; 
+    let isArmed = false; 
+    
     let rawBeta = 0, rawGamma = 0;
-    let tiltStart = 0, activeDirection = null, stateTimer = 0;
-    let startAnimHeading = 0, isTrueNorth = false, shakeOffset = 0;
+    let tiltStart = 0;
+    let activeDirection = null; 
+    let stateTimer = 0;
+    let startAnimHeading = 0;
+    let isTrueNorth = false;
+    let shakeOffset = 0;
     let magicIndicatorEl = null;
-    let tapCount = 0, tapTimeout = null;
+
+    let tapCount = 0;
+    let tapTimeout = null;
 
     let targetHeading = 0, currentHeading = 0;
     let targetTiltX = 0, currentTiltX = 0;
     let targetTiltY = 0, currentTiltY = 0;
-    const HEADING_SMOOTHING = 0.35;
+    const HEADING_SMOOTHING = 0.35; 
     const TILT_SMOOTHING = 0.15;
 
-    let isRunning = false, watchId = null;
+    let isRunning = false;
+    let watchId = null;
     let lastFetchedLat = null, lastFetchedLon = null;
-    let hasRequestedPermission = false, watchdogTimer = null, altitudeFetched = false;
+    let hasRequestedPermission = false;
+    let watchdogTimer = null;
+    let altitudeFetched = false;
 
-    let touchStartX = 0, touchStartY = 0;
+    // --- SWIPE VARIABLES ---
+    let touchStartX = 0;
+    let touchStartY = 0;
     const SWIPE_THRESHOLD = 40;
 
-    const dial          = document.getElementById('dial');
+    const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
-    const headingText   = document.getElementById('headingText');
-    const levelBubble   = document.getElementById('level-bubble');
-    const coordsText    = document.getElementById('coordsText');
-    const cityText      = document.getElementById('cityText');
+    const headingText = document.getElementById('headingText');
+    const levelBubble = document.getElementById('level-bubble');
+    const coordsText = document.getElementById('coordsText');
+    const cityText = document.getElementById('cityText');
     const elevationText = document.getElementById('elevationText');
-    const overlay       = document.getElementById('calibration-overlay');
+    const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
-    const settingsContent = document.getElementById('settings-content');
+    const settingsCard = document.getElementById('settings-card');
 
     window.armMagic = function() {
-      if (!isArmed && mState === 'IDLE') isArmed = true;
-    };
+      if (!isArmed && mState === 'IDLE') {
+        isArmed = true;
+      }
+    }
 
     window.toggleGlitchOptions = function() {
       const isChecked = document.getElementById('set-glitch').checked;
-      document.getElementById('glitch-options').classList.toggle('hidden', !isChecked);
-    };
+      const container = document.getElementById('glitch-options');
+      if (isChecked) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
 
     function openSettings() {
-      document.getElementById('set-swipe').checked    = mConf.enableSwipe;
-      document.getElementById('set-glitch').checked   = mConf.enableGlitch;
-      document.getElementById('set-g-dur').value      = mConf.glitchDuration / 1000;
-      document.getElementById('set-g-spd').value      = mConf.glitchSpeed;
-      document.getElementById('set-threshold').value  = mConf.threshold;
-      document.getElementById('set-hold').value       = mConf.holdTime / 1000;
-      document.getElementById('set-delay').value      = mConf.flatDelay / 1000;
-      document.getElementById('set-shake').value      = mConf.shakeTime / 1000;
-      document.getElementById('set-anim').value       = mConf.animTime / 1000;
-
-      document.getElementById('val-g-dur').innerText      = (mConf.glitchDuration / 1000).toFixed(1) + 's';
-      document.getElementById('val-g-spd').innerText      = mConf.glitchSpeed;
-      document.getElementById('val-threshold').innerText  = mConf.threshold + '°';
-      document.getElementById('val-hold').innerText       = (mConf.holdTime / 1000).toFixed(1) + 's';
-      document.getElementById('val-delay').innerText      = (mConf.flatDelay / 1000).toFixed(1) + 's';
-      document.getElementById('val-shake').innerText      = (mConf.shakeTime / 1000).toFixed(1) + 's';
-      document.getElementById('val-anim').innerText       = (mConf.animTime / 1000).toFixed(1) + 's';
-
+      document.getElementById('set-swipe').checked = mConf.enableSwipe;
+      document.getElementById('set-glitch').checked = mConf.enableGlitch;
+      document.getElementById('set-g-dur').value = mConf.glitchDuration / 1000;
+      document.getElementById('set-g-spd').value = mConf.glitchSpeed;
+      document.getElementById('set-threshold').value = mConf.threshold;
+      document.getElementById('set-hold').value = mConf.holdTime / 1000;
+      document.getElementById('set-delay').value = mConf.flatDelay / 1000;
+      document.getElementById('set-shake').value = mConf.shakeTime / 1000;
+      document.getElementById('set-anim').value = mConf.animTime / 1000;
+      
+      document.getElementById('val-g-dur').innerText = (mConf.glitchDuration / 1000).toFixed(1) + 's';
+      document.getElementById('val-g-spd').innerText = mConf.glitchSpeed;
+      document.getElementById('val-threshold').innerText = mConf.threshold + '°';
+      document.getElementById('val-hold').innerText = (mConf.holdTime / 1000).toFixed(1) + 's';
+      document.getElementById('val-delay').innerText = (mConf.flatDelay / 1000).toFixed(1) + 's';
+      document.getElementById('val-shake').innerText = (mConf.shakeTime / 1000).toFixed(1) + 's';
+      document.getElementById('val-anim').innerText = (mConf.animTime / 1000).toFixed(1) + 's';
+      
       toggleGlitchOptions();
 
+      // Pakai flex biar centering jalan
       settingsModal.classList.remove('hidden');
-      settingsModal.scrollTop = 0;
-
+      settingsModal.classList.add('flex');
+      
       requestAnimationFrame(() => {
         settingsModal.classList.remove('opacity-0');
-        settingsContent.style.transform = 'translateY(0)';
+        // Zoom-in effect
+        settingsCard.classList.remove('scale-95');
+        settingsCard.classList.add('scale-100');
       });
     }
 
     function closeSettings() {
       settingsModal.classList.add('opacity-0');
-      settingsContent.style.transform = 'translateY(40px)';
+      // Zoom-out effect
+      settingsCard.classList.remove('scale-100');
+      settingsCard.classList.add('scale-95');
+      
       setTimeout(() => {
         settingsModal.classList.add('hidden');
+        settingsModal.classList.remove('flex');
       }, 300);
     }
 
@@ -364,67 +349,95 @@
       tapCount++;
       clearTimeout(tapTimeout);
       tapTimeout = setTimeout(() => tapCount = 0, 1000);
-      if (tapCount >= 5) { openSettings(); tapCount = 0; }
+      if(tapCount >= 5) {
+        openSettings();
+        tapCount = 0;
+      }
     }
 
     window.saveSettings = function() {
-      mConf.enableSwipe     = document.getElementById('set-swipe').checked;
-      mConf.enableGlitch    = document.getElementById('set-glitch').checked;
-      mConf.glitchDuration  = parseFloat(document.getElementById('set-g-dur').value) * 1000;
-      mConf.glitchSpeed     = parseInt(document.getElementById('set-g-spd').value);
-      mConf.threshold       = parseFloat(document.getElementById('set-threshold').value);
-      mConf.holdTime        = parseFloat(document.getElementById('set-hold').value) * 1000;
-      mConf.flatDelay       = parseFloat(document.getElementById('set-delay').value) * 1000;
-      mConf.shakeTime       = parseFloat(document.getElementById('set-shake').value) * 1000;
-      mConf.animTime        = parseFloat(document.getElementById('set-anim').value) * 1000;
+      mConf.enableSwipe = document.getElementById('set-swipe').checked;
+      mConf.enableGlitch = document.getElementById('set-glitch').checked;
+      mConf.glitchDuration = parseFloat(document.getElementById('set-g-dur').value) * 1000;
+      mConf.glitchSpeed = parseInt(document.getElementById('set-g-spd').value);
+      mConf.threshold = parseFloat(document.getElementById('set-threshold').value);
+      mConf.holdTime = parseFloat(document.getElementById('set-hold').value) * 1000;
+      mConf.flatDelay = parseFloat(document.getElementById('set-delay').value) * 1000;
+      mConf.shakeTime = parseFloat(document.getElementById('set-shake').value) * 1000;
+      mConf.animTime = parseFloat(document.getElementById('set-anim').value) * 1000;
+      
       localStorage.setItem('compassMagicSettings', JSON.stringify(mConf));
       closeSettings();
-      mState = 'IDLE'; isArmed = false;
-    };
+      mState = 'IDLE';
+      isArmed = false;
+    }
 
     window.resetApp = function() {
-      if (confirm("Are you sure you want to reset all settings?")) {
-        localStorage.clear(); location.reload();
+      if(confirm("Are you sure you want to reset all settings?")) {
+        localStorage.clear();
+        location.reload();
       }
-    };
+    }
 
-    // ── SWIPE ──
+    // --- SWIPE EVENT LISTENERS ---
     document.addEventListener('touchstart', e => {
+      // Ignore kalo tap di dalem menu settings
       if (e.target.closest('#settings-modal')) return;
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
-    }, { passive: false });
+    }, {passive: false});
 
     document.addEventListener('touchend', e => {
       if (e.target.closest('#settings-modal')) return;
+      
       if (!mConf.enableSwipe) return;
       if (mState !== 'IDLE' && mState !== 'LOCKED') return;
 
-      const dx = e.changedTouches[0].screenX - touchStartX;
-      const dy = e.changedTouches[0].screenY - touchStartY;
+      let touchEndX = e.changedTouches[0].screenX;
+      let touchEndY = e.changedTouches[0].screenY;
+
+      let dx = touchEndX - touchStartX;
+      let dy = touchEndY - touchStartY;
 
       if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
-        activeDirection = Math.abs(dx) > Math.abs(dy)
-          ? (dx > 0 ? 270 : 90)
-          : (dy > 0 ? 180 : 0);
-        isArmed = true; mState = 'LOCKED';
-        if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal Swipe (kanan 270, kiri 90)
+          activeDirection = dx > 0 ? 270 : 90; 
+        } else {
+          // Vertical Swipe (bawah 180, atas 0)
+          activeDirection = dy > 0 ? 180 : 0; 
+        }
+        
+        isArmed = true;
+        mState = 'LOCKED';
+        if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
       }
     });
 
-    // ── DRAW ──
     function drawTicks() {
       const canvas = document.getElementById('ticksCanvas');
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, 320, 320);
       ctx.strokeStyle = '#ffffff';
       for (let i = 0; i < 360; i += 2) {
-        ctx.save(); ctx.translate(160, 160); ctx.rotate(i * Math.PI / 180);
-        ctx.beginPath(); ctx.lineWidth = (i % 30 === 0) ? 2 : 1;
-        ctx.moveTo(0, -135); ctx.lineTo(0, -118); ctx.stroke(); ctx.restore();
+        ctx.save();
+        ctx.translate(160, 160);
+        ctx.rotate(i * Math.PI / 180);
+        ctx.beginPath();
+        ctx.lineWidth = (i % 30 === 0) ? 2 : 1;
+        ctx.moveTo(0, -135);
+        ctx.lineTo(0, -118);
+        ctx.stroke();
+        ctx.restore();
       }
-      ctx.save(); ctx.translate(160, 160); ctx.fillStyle = '#ff3b30';
-      ctx.beginPath(); ctx.moveTo(0, -148); ctx.lineTo(-5, -138); ctx.lineTo(5, -138); ctx.fill();
+      ctx.save();
+      ctx.translate(160, 160);
+      ctx.fillStyle = '#ff3b30';
+      ctx.beginPath();
+      ctx.moveTo(0, -148);
+      ctx.lineTo(-5, -138); 
+      ctx.lineTo(5, -138);  
+      ctx.fill();
       ctx.restore();
     }
 
@@ -436,7 +449,7 @@
         container.style.transform = `rotate(${label.deg}deg)`;
         const textSpan = document.createElement('div');
         textSpan.className = `label-text ${label.type === 'letter' ? 'text-[22px] font-medium' : 'text-[14px] font-medium text-gray-200'}`;
-        textSpan.style.marginTop = `${label.outer ? -165 : -98}px`;
+        textSpan.style.marginTop = `${label.outer ? -165 : -98}px`; 
         textSpan.innerText = label.text;
         textSpan.id = `label-${label.deg}-${label.outer ? 'out' : 'in'}`;
         container.appendChild(textSpan);
@@ -444,107 +457,158 @@
       });
     }
 
-    function getDirection(d) {
-      return ["N","NE","E","SE","S","SW","W","NW"][Math.floor(((d + 22.5) % 360) / 45)];
+    function getDirection(degrees) {
+      const arr = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      return arr[Math.floor(((degrees + 22.5) % 360) / 45)];
     }
 
-    function easeInOutCubic(t) {
-      return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
-    }
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
-    // ── RENDER LOOP ──
     function renderLoop() {
       if (!isRunning) return;
       const now = Date.now();
+      
+      if(!magicIndicatorEl) magicIndicatorEl = document.getElementById('magic-indicator');
 
-      if (!magicIndicatorEl) magicIndicatorEl = document.getElementById('magic-indicator');
       if (magicIndicatorEl) {
-        magicIndicatorEl.style.opacity = (mState === 'TILTING' || mState === 'BLINKING_INDICATOR') ? '0' : '1';
+        if (mState === 'TILTING' || mState === 'BLINKING_INDICATOR') {
+          magicIndicatorEl.style.opacity = '0';
+        } else {
+          magicIndicatorEl.style.opacity = '1';
+        }
       }
 
       let isOverridingHeading = false;
-      const isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
+      let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
         if (isArmed) {
-          if      (rawBeta  < -mConf.threshold) { activeDirection = 0;   mState = 'TILTING'; tiltStart = now; }
-          else if (rawBeta  >  mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; }
-          else if (rawGamma >  mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; }
-          else if (rawGamma < -mConf.threshold) { activeDirection = 90;  mState = 'TILTING'; tiltStart = now; }
+          if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
+          else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
+          else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } 
+          else if (rawGamma < -mConf.threshold) { activeDirection = 90; mState = 'TILTING'; tiltStart = now; } 
         }
-      } else if (mState === 'TILTING') {
-        let match = (activeDirection === 0   && rawBeta  < -mConf.threshold)
-                 || (activeDirection === 180  && rawBeta  >  mConf.threshold)
-                 || (activeDirection === 270  && rawGamma >  mConf.threshold)
-                 || (activeDirection === 90   && rawGamma < -mConf.threshold);
-        if (!match) mState = 'IDLE';
+      } 
+      else if (mState === 'TILTING') {
+        let match = false;
+        if (activeDirection === 0 && rawBeta < -mConf.threshold) match = true;
+        else if (activeDirection === 180 && rawBeta > mConf.threshold) match = true;
+        else if (activeDirection === 270 && rawGamma > mConf.threshold) match = true;
+        else if (activeDirection === 90 && rawGamma < -mConf.threshold) match = true;
+
+        if (!match) mState = 'IDLE'; 
         else if (now - tiltStart > mConf.holdTime) {
           mState = 'LOCKED';
-          if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+          if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
         }
-      } else if (mState === 'LOCKED') {
+      } 
+      else if (mState === 'LOCKED') {
         if (isFlat) { mState = 'ON_TABLE'; stateTimer = now; }
-      } else if (mState === 'ON_TABLE') {
-        if (!isFlat) mState = 'LOCKED';
-        else if (now - stateTimer > mConf.flatDelay) { mState = 'BLINKING_INDICATOR'; stateTimer = now; }
-      } else if (mState === 'BLINKING_INDICATOR') {
-        if (now - stateTimer > 250) { mState = 'WAITING_ANIMATION'; stateTimer = now; }
-      } else if (mState === 'WAITING_ANIMATION') {
+      } 
+      else if (mState === 'ON_TABLE') {
+        if (!isFlat) mState = 'LOCKED'; 
+        else if (now - stateTimer > mConf.flatDelay) {
+          mState = 'BLINKING_INDICATOR';
+          stateTimer = now;
+        }
+      } 
+      else if (mState === 'BLINKING_INDICATOR') {
+        if (now - stateTimer > 250) {
+          mState = 'WAITING_ANIMATION';
+          stateTimer = now;
+        }
+      }
+      else if (mState === 'WAITING_ANIMATION') {
         if (now - stateTimer > 250) {
           startAnimHeading = currentHeading;
-          const norm = ((startAnimHeading % 360) + 360) % 360;
-          isTrueNorth = (activeDirection === 0 && (norm >= 352 || norm <= 8));
+          
+          let normalizedHeading = ((startAnimHeading % 360) + 360) % 360;
+          let isFacingNorth = (normalizedHeading >= 352 || normalizedHeading <= 8);
+          isTrueNorth = (activeDirection === 0 && isFacingNorth);
+
           if (isTrueNorth) {
             window.finalTargetHeading = startAnimHeading + 360;
           } else {
             let diff = activeDirection - (startAnimHeading % 360);
             if (diff < -180) diff += 360;
-            if (diff >  180) diff -= 360;
+            if (diff > 180) diff -= 360;
             window.finalTargetHeading = startAnimHeading + diff;
           }
-          mState = mConf.enableGlitch ? 'GLITCHING' : 'ANIMATING';
-          stateTimer = now;
+
+          if (mConf.enableGlitch) {
+            mState = 'GLITCHING';
+            stateTimer = now;
+          } else {
+            mState = 'ANIMATING';
+            stateTimer = now;
+          }
         }
-      } else if (mState === 'GLITCHING') {
+      }
+      else if (mState === 'GLITCHING') {
         isOverridingHeading = true;
+        
         if (typeof window.glitchTarget === 'undefined') window.glitchTarget = currentHeading;
-        const chaos = mConf.glitchSpeed;
-        if (Math.random() < 0.05 + chaos * 0.02) {
-          const range = window.finalTargetHeading - startAnimHeading;
-          window.glitchTarget = startAnimHeading + range * ((Math.random() * 1.4) - 0.2);
+
+        let chaosLevel = mConf.glitchSpeed; 
+        
+        if (Math.random() < 0.05 + (chaosLevel * 0.02)) {
+          let range = window.finalTargetHeading - startAnimHeading;
+          let randomPos = (Math.random() * 1.4) - 0.2; 
+          window.glitchTarget = startAnimHeading + (range * randomPos);
         }
-        currentHeading += (window.glitchTarget - currentHeading) * (0.05 + chaos * 0.03);
+
+        let glitchSmoothing = 0.05 + (chaosLevel * 0.03);
+        currentHeading += (window.glitchTarget - currentHeading) * glitchSmoothing;
+
         if (now - stateTimer > mConf.glitchDuration) {
-          mState = 'ANIMATING'; stateTimer = now;
-          startAnimHeading = currentHeading; window.glitchTarget = undefined;
+          mState = 'ANIMATING';
+          stateTimer = now;
+          startAnimHeading = currentHeading; 
+          window.glitchTarget = undefined;
         }
-      } else if (mState === 'ANIMATING') {
+      }
+      else if (mState === 'ANIMATING') {
         isOverridingHeading = true;
-        const progress = Math.min((now - stateTimer) / mConf.animTime, 1);
-        currentHeading = startAnimHeading + (window.finalTargetHeading - startAnimHeading) * easeInOutCubic(progress);
+        let progress = Math.min((now - stateTimer) / mConf.animTime, 1);
+        let ease = easeInOutCubic(progress);
+
+        let totalTravel = window.finalTargetHeading - startAnimHeading;
+        currentHeading = startAnimHeading + (totalTravel * ease);
+
         if (progress >= 1) { mState = 'SHAKING'; stateTimer = now; }
-      } else if (mState === 'SHAKING') {
+      } 
+      else if (mState === 'SHAKING') {
         isOverridingHeading = true;
-        shakeOffset = Math.sin(now / 15) * 1.5;
+        shakeOffset = Math.sin(now / 15) * 1.5; 
         currentHeading = window.finalTargetHeading + shakeOffset;
+
         if (now - stateTimer > mConf.shakeTime) {
-          mState = 'RETURNING'; stateTimer = now; startAnimHeading = currentHeading - shakeOffset;
+          mState = 'RETURNING'; 
+          stateTimer = now; 
+          startAnimHeading = currentHeading - shakeOffset; 
         }
-      } else if (mState === 'RETURNING') {
+      } 
+      else if (mState === 'RETURNING') {
         isOverridingHeading = true;
-        const progress = Math.min((now - stateTimer) / (mConf.animTime * 1.5), 1);
+        let progress = Math.min((now - stateTimer) / (mConf.animTime * 1.5), 1); 
+        let ease = easeInOutCubic(progress);
+
         let diff = targetHeading - startAnimHeading;
         while (diff < -180) diff += 360;
-        while (diff >  180) diff -= 360;
-        currentHeading = startAnimHeading + diff * easeInOutCubic(progress);
-        if (progress >= 1) { mState = 'IDLE'; isArmed = false; }
+        while (diff > 180) diff -= 360;
+        
+        currentHeading = startAnimHeading + (diff * ease);
+        if (progress >= 1) {
+          mState = 'IDLE';
+          isArmed = false; 
+        }
       }
 
       if (!isOverridingHeading) {
-        let dh = targetHeading - currentHeading;
-        while (dh < -180) dh += 360;
-        while (dh >  180) dh -= 360;
-        currentHeading += dh * HEADING_SMOOTHING;
+        let diffHeading = targetHeading - currentHeading;
+        while (diffHeading < -180) diffHeading += 360;
+        while (diffHeading > 180) diffHeading -= 360;
+        currentHeading += diffHeading * HEADING_SMOOTHING;
       }
 
       currentTiltX += (targetTiltX - currentTiltX) * TILT_SMOOTHING;
@@ -555,16 +619,17 @@
 
       labels.forEach(label => {
         const el = document.getElementById(`label-${label.deg}-${label.outer ? 'out' : 'in'}`);
-        if (el) el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
+        if (el) {
+          el.style.transform = `translate(-50%, -50%) rotate(${currentHeading - label.deg}deg)`;
+        }
       });
 
-      const displayHeading = Math.round((currentHeading % 360 + 360) % 360);
+      let displayHeading = Math.round((currentHeading % 360 + 360) % 360);
       headingText.innerText = `${displayHeading}° ${getDirection(displayHeading)}`;
 
       requestAnimationFrame(renderLoop);
     }
 
-    // ── GPS / SENSORS ──
     function resetWatchdog() {
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
@@ -575,32 +640,45 @@
     function handleOrientation(event) {
       if (!event) return;
       resetWatchdog();
-      rawBeta  = event.beta  || 0;
+
+      rawBeta = event.beta || 0;
       rawGamma = event.gamma || 0;
-      const s = 1.6, max = 60;
-      let bX = -rawGamma * s, bY = rawBeta * s;
-      const dist = Math.sqrt(bX*bX + bY*bY);
-      if (dist > max) { bX = bX/dist*max; bY = bY/dist*max; }
-      targetTiltX = bX; targetTiltY = bY;
-      const heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
+
+      let sensitivity = 1.6;
+      let bX = -rawGamma * sensitivity;
+      let bY = rawBeta * sensitivity;
+
+      let maxRadius = 60;
+      let dist = Math.sqrt(bX * bX + bY * bY);
+      if (dist > maxRadius) {
+        bX = (bX / dist) * maxRadius;
+        bY = (bY / dist) * maxRadius;
+      }
+
+      targetTiltX = bX;
+      targetTiltY = bY;
+
+      let heading = event.webkitCompassHeading ?? (event.alpha !== null ? 360 - event.alpha : null);
       if (heading !== null) targetHeading = heading;
     }
 
     function attachOrientationListener(isAutoStart = false) {
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('deviceorientationabsolute', handleOrientation);
+
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         if (!isAutoStart) {
           DeviceOrientationEvent.requestPermission()
-            .then(state => {
-              if (state === 'granted') {
+            .then(permissionState => {
+              if (permissionState === 'granted') {
                 window.addEventListener('deviceorientation', handleOrientation);
-                hasRequestedPermission = true; startEngine();
+                hasRequestedPermission = true;
+                startEngine();
               } else {
                 alert("Sensor access denied. Please refresh to try again.");
-                overlay.style.display = 'flex';
+                document.getElementById('calibration-overlay').style.display = 'flex';
               }
-            }).catch(() => { overlay.style.display = 'flex'; });
+            }).catch(() => { document.getElementById('calibration-overlay').style.display = 'flex'; });
         } else {
           window.addEventListener('deviceorientation', handleOrientation);
           startEngine();
@@ -614,59 +692,86 @@
     }
 
     function startEngine() {
-      if (overlay) { overlay.style.opacity = '0'; setTimeout(() => { overlay.style.display = 'none'; }, 300); }
-      if (!isRunning) { isRunning = true; requestAnimationFrame(renderLoop); }
-      startGPS(); resetWatchdog();
+      if (overlay) {
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay) overlay.style.display = 'none'; }, 300);
+      }
+      if (!isRunning) {
+        isRunning = true;
+        requestAnimationFrame(renderLoop);
+      }
+      startGPS();
+      resetWatchdog();
     }
 
     function toDMS(coord, isLat, isFirst) {
-      const abs = Math.abs(coord);
-      const deg = Math.floor(abs);
-      const minF = (abs - deg) * 60;
-      const min  = Math.floor(minF);
-      const sec  = Math.floor((minF - min) * 60);
-      const dir  = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
-      const sym  = isFirst ? `<span id="magic-indicator">'</span>` : `'`;
-      return `${deg}°${min}${sym}${sec}" ${dir}`;
+      const absolute = Math.abs(coord);
+      const degrees = Math.floor(absolute);
+      const minutesNotTruncated = (absolute - degrees) * 60;
+      const minutes = Math.floor(minutesNotTruncated);
+      const seconds = Math.floor((minutesNotTruncated - minutes) * 60);
+      const dir = isLat ? (coord >= 0 ? "N" : "S") : (coord >= 0 ? "E" : "W");
+      
+      const minuteSymbol = isFirst ? `<span id="magic-indicator">'</span>` : `'`;
+      return `${degrees}°${minutes}${minuteSymbol}${seconds}" ${dir}`;
     }
 
     function getDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3, p1 = lat1*Math.PI/180, p2 = lat2*Math.PI/180;
-      const dp = (lat2-lat1)*Math.PI/180, dl = (lon2-lon1)*Math.PI/180;
-      const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const R = 6371e3; 
+      const p1 = lat1 * Math.PI/180;
+      const p2 = lat2 * Math.PI/180;
+      const dp = (lat2-lat1) * Math.PI/180;
+      const dl = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(dp/2) * Math.sin(dp/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl/2) * Math.sin(dl/2);
+      return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
     async function fetchAltitudeFallback(lat, lon) {
       try {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 5000);
-        const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: ctrl.signal });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lon}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
-        if (data?.results?.[0]) elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
-      } catch(e) {}
+        if (data && data.results && data.results[0]) {
+          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
+        }
+      } catch (e) {}
     }
 
     function startGPS() {
       if (!navigator.geolocation) return;
-      if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-      watchId = navigator.geolocation.watchPosition(pos => {
-        const lat = pos.coords.latitude, lon = pos.coords.longitude, alt = pos.coords.altitude;
-        coordsText.innerHTML = `${toDMS(lat, true, true)} ${toDMS(lon, false, false)}`;
-        magicIndicatorEl = document.getElementById('magic-indicator');
-        if (alt !== null && alt !== undefined && alt !== 0) {
-          elevationText.innerText = `${Math.round(alt)} m Elevation`;
-        } else if (!altitudeFetched) {
-          altitudeFetched = true; fetchAltitudeFallback(lat, lon);
-        }
-        if (!lastFetchedLat || getDistance(lastFetchedLat, lastFetchedLon, lat, lon) > 50) {
-          lastFetchedLat = lat; lastFetchedLon = lon;
-          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
-            .then(r => r.json())
-            .then(d => { if (d.address) cityText.innerText = d.address.city || d.address.town || d.address.county || "Location Found"; })
+      
+      if (watchId !== null) { 
+        navigator.geolocation.clearWatch(watchId); 
+        watchId = null; 
+      }
+
+      watchId = navigator.geolocation.watchPosition(
+        pos => {
+          const lat = pos.coords.latitude; const lon = pos.coords.longitude;
+          let alt = pos.coords.altitude;
+          
+          coordsText.innerHTML = `${toDMS(lat, true, true)} ${toDMS(lon, false, false)}`;
+          magicIndicatorEl = document.getElementById('magic-indicator'); 
+          
+          if (alt !== null && alt !== undefined && alt !== 0) {
+            elevationText.innerText = `${Math.round(alt)} m Elevation`;
+          } else if (!altitudeFetched) {
+            altitudeFetched = true;
+            fetchAltitudeFallback(lat, lon);
+          }
+          
+          if (!lastFetchedLat || getDistance(lastFetchedLat, lastFetchedLon, lat, lon) > 50) {
+            lastFetchedLat = lat; lastFetchedLon = lon;
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
+            .then(res => res.json())
+            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Location Found"; })
             .catch(() => {});
-        }
-      }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+          }
+        }, 
+        () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     }
 
     function stopSensors() {
@@ -682,10 +787,9 @@
       else stopSensors();
     });
 
-    window.startAppManual = function() { attachOrientationListener(false); };
-
-    drawTicks();
-    initLabels();
+    window.startAppManual = function() { attachOrientationListener(false); }
+    
+    drawTicks(); initLabels();
   </script>
 
 </body>
