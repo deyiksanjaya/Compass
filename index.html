@@ -31,7 +31,6 @@
       cursor: pointer; transition: opacity 0.3s;
     }
 
-    /* Kustomisasi Slider iOS Style */
     input[type=range] {
       -webkit-appearance: none;
       background: rgba(255, 255, 255, 0.15);
@@ -49,12 +48,32 @@
       cursor: pointer;
       box-shadow: 0 2px 5px rgba(0,0,0,0.4);
     }
+    
+    /* Style buat input text */
+    input[type=text] {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: white;
+      padding: 6px 10px;
+      font-size: 14px;
+      outline: none;
+      width: 100px;
+      text-align: right;
+    }
+    input[type=text]:focus {
+      border-color: #007aff;
+    }
 
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     
     #magic-indicator {
       transition: opacity 0.2s ease-in-out;
+    }
+    
+    #mic-indicator {
+      transition: opacity 0.3s;
     }
 
     .hide-scrollbar::-webkit-scrollbar {
@@ -69,7 +88,7 @@
 </head>
 <body class="fixed inset-0 bg-black select-none overflow-hidden text-white">
 
-  <!-- APP CONTAINER (Area kompas) -->
+  <!-- APP CONTAINER -->
   <div id="app-container" class="absolute inset-0 z-0" style="touch-action: none;">
     
     <!-- Overlay Kalibrasi -->
@@ -79,6 +98,9 @@
         <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
       </div>
     </div>
+
+    <!-- Indikator Mic (Kecil di pojok kiri atas buat nandain listening jalan) -->
+    <div id="mic-indicator" class="absolute top-4 left-4 w-2 h-2 rounded-full bg-red-500 opacity-0 z-20 pointer-events-none"></div>
 
     <!-- CONTAINER KOMPAS -->
     <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
@@ -131,11 +153,40 @@
 
       <!-- Toggle Swipe Input -->
       <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
-        <label class="text-[15px] font-medium text-white">Swipe Input (Up/Dn/L/R)</label>
+        <label class="text-[15px] font-medium text-white">Swipe Input</label>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" id="set-swipe" class="sr-only peer">
           <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
         </label>
+      </div>
+      
+      <!-- Toggle Voice Input -->
+      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
+        <label class="text-[15px] font-medium text-white">Voice Recognition</label>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="set-voice" class="sr-only peer" onchange="toggleVoiceOptions()">
+          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+        </label>
+      </div>
+
+      <!-- Voice Words Options -->
+      <div id="voice-options" class="space-y-3 mb-5 pb-5 border-b border-white/10 hidden bg-white/5 p-3 rounded-xl">
+        <div class="flex justify-between items-center">
+          <label class="text-[14px] text-gray-200">North (0°)</label>
+          <input type="text" id="voice-n" placeholder="word...">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[14px] text-gray-200">South (180°)</label>
+          <input type="text" id="voice-s" placeholder="word...">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[14px] text-gray-200">East (90°)</label>
+          <input type="text" id="voice-e" placeholder="word...">
+        </div>
+        <div class="flex justify-between items-center">
+          <label class="text-[14px] text-gray-200">West (270°)</label>
+          <input type="text" id="voice-w" placeholder="word...">
+        </div>
       </div>
 
       <!-- Toggle Glitch -->
@@ -225,6 +276,13 @@
 
     let mConf = {
       enableSwipe: true,
+      enableVoice: false,
+      voiceWords: {
+        n: 'utara',
+        s: 'selatan',
+        e: 'timur',
+        w: 'barat'
+      },
       enableGlitch: true,
       glitchDuration: 600,
       glitchSpeed: 5,
@@ -238,6 +296,9 @@
     try {
       const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
       if(saved) mConf = {...mConf, ...saved};
+      // Kasih default kalau update dari versi lama yang belum ada setting voice
+      if(typeof mConf.enableVoice === 'undefined') mConf.enableVoice = false;
+      if(!mConf.voiceWords) mConf.voiceWords = {n: 'utara', s: 'selatan', e: 'timur', w: 'barat'};
     } catch(e){}
 
     let mState = 'IDLE'; 
@@ -272,6 +333,10 @@
     let touchStartX = 0;
     let touchStartY = 0;
     const SWIPE_THRESHOLD = 40;
+    
+    // --- VOICE RECOGNITION VARIABLES ---
+    let recognition = null;
+    let isListening = false;
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
@@ -283,6 +348,7 @@
     const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
+    const micIndicator = document.getElementById('mic-indicator');
 
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
@@ -299,10 +365,27 @@
         container.classList.add('hidden');
       }
     }
+    
+    window.toggleVoiceOptions = function() {
+      const isChecked = document.getElementById('set-voice').checked;
+      const container = document.getElementById('voice-options');
+      if (isChecked) {
+        container.classList.remove('hidden');
+      } else {
+        container.classList.add('hidden');
+      }
+    }
 
     function openSettings() {
       document.getElementById('set-swipe').checked = mConf.enableSwipe;
+      document.getElementById('set-voice').checked = mConf.enableVoice;
       document.getElementById('set-glitch').checked = mConf.enableGlitch;
+      
+      document.getElementById('voice-n').value = mConf.voiceWords.n;
+      document.getElementById('voice-s').value = mConf.voiceWords.s;
+      document.getElementById('voice-e').value = mConf.voiceWords.e;
+      document.getElementById('voice-w').value = mConf.voiceWords.w;
+
       document.getElementById('set-g-dur').value = mConf.glitchDuration / 1000;
       document.getElementById('set-g-spd').value = mConf.glitchSpeed;
       document.getElementById('set-threshold').value = mConf.threshold;
@@ -320,6 +403,7 @@
       document.getElementById('val-anim').innerText = (mConf.animTime / 1000).toFixed(1) + 's';
       
       toggleGlitchOptions();
+      toggleVoiceOptions();
 
       // Pakai flex biar centering jalan
       settingsModal.classList.remove('hidden');
@@ -357,6 +441,17 @@
 
     window.saveSettings = function() {
       mConf.enableSwipe = document.getElementById('set-swipe').checked;
+      
+      const oldVoiceState = mConf.enableVoice;
+      mConf.enableVoice = document.getElementById('set-voice').checked;
+      
+      mConf.voiceWords = {
+        n: document.getElementById('voice-n').value.toLowerCase().trim() || 'utara',
+        s: document.getElementById('voice-s').value.toLowerCase().trim() || 'selatan',
+        e: document.getElementById('voice-e').value.toLowerCase().trim() || 'timur',
+        w: document.getElementById('voice-w').value.toLowerCase().trim() || 'barat'
+      };
+
       mConf.enableGlitch = document.getElementById('set-glitch').checked;
       mConf.glitchDuration = parseFloat(document.getElementById('set-g-dur').value) * 1000;
       mConf.glitchSpeed = parseInt(document.getElementById('set-g-spd').value);
@@ -370,12 +465,103 @@
       closeSettings();
       mState = 'IDLE';
       isArmed = false;
+      
+      // Manage voice recognition state
+      if (mConf.enableVoice && !oldVoiceState) {
+        initSpeechRecognition();
+      } else if (!mConf.enableVoice && recognition) {
+        recognition.stop();
+      }
     }
 
     window.resetApp = function() {
       if(confirm("Are you sure you want to reset all settings?")) {
         localStorage.clear();
         location.reload();
+      }
+    }
+    
+    // --- VOICE RECOGNITION SETUP ---
+    function initSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert("Browser kamu nggak support Voice Recognition. Coba pakai Chrome atau Safari versi terbaru.");
+        mConf.enableVoice = false;
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      // Pakai bahasa Indonesia sebagai default
+      recognition.lang = 'id-ID';
+
+      recognition.onstart = function() {
+        isListening = true;
+        micIndicator.style.opacity = '1';
+      };
+
+      recognition.onresult = function(event) {
+        if (!mConf.enableVoice) return;
+        // Kalau udah ngunci atau jalan animasinya, abaikan suara
+        if (mState !== 'IDLE') return;
+
+        // Ambil hasil omongan terakhir
+        const current = event.resultIndex;
+        const transcript = event.results[current][0].transcript.toLowerCase();
+        
+        console.log("Heard:", transcript);
+
+        // Cek apakah ada trigger word di dalam kalimat
+        if (transcript.includes(mConf.voiceWords.n)) {
+          triggerVoiceDirection(0);
+        } else if (transcript.includes(mConf.voiceWords.s)) {
+          triggerVoiceDirection(180);
+        } else if (transcript.includes(mConf.voiceWords.e)) {
+          triggerVoiceDirection(90);
+        } else if (transcript.includes(mConf.voiceWords.w)) {
+          triggerVoiceDirection(270);
+        }
+      };
+
+      recognition.onerror = function(event) {
+        console.error("Speech recognition error", event.error);
+        if (event.error === 'not-allowed') {
+          mConf.enableVoice = false;
+        }
+      };
+
+      recognition.onend = function() {
+        isListening = false;
+        micIndicator.style.opacity = '0';
+        // Auto-restart kalau settingnya nyala tapi keputus
+        if (mConf.enableVoice && isRunning && document.visibilityState === 'visible') {
+          try { recognition.start(); } catch(e){}
+        }
+      };
+
+      try {
+        recognition.start();
+      } catch(e) {
+        console.log("Recognition already started");
+      }
+    }
+    
+    function triggerVoiceDirection(dir) {
+      activeDirection = dir;
+      isArmed = true;
+      mState = 'LOCKED';
+      if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
+      
+      // Stop dengerin sementara biar ga ketrigger dua kali beruntun
+      if(recognition) {
+        recognition.stop();
+        setTimeout(() => {
+          if(mConf.enableVoice && mState === 'IDLE') {
+            try { recognition.start(); } catch(e){}
+          }
+        }, mConf.animTime + mConf.flatDelay + 2000);
       }
     }
 
@@ -601,6 +787,10 @@
         if (progress >= 1) {
           mState = 'IDLE';
           isArmed = false; 
+          // Nyalain mic lagi kalau sempet dimatiin pas lg jalanin efek
+          if(mConf.enableVoice && !isListening) {
+             try { recognition.start(); } catch(e){}
+          }
         }
       }
 
@@ -699,6 +889,10 @@
       if (!isRunning) {
         isRunning = true;
         requestAnimationFrame(renderLoop);
+        // Start voice kalau enabled pas pertama kali jalan
+        if (mConf.enableVoice && !isListening) {
+          initSpeechRecognition();
+        }
       }
       startGPS();
       resetWatchdog();
@@ -780,11 +974,20 @@
       window.removeEventListener('deviceorientation', handleOrientation);
       clearTimeout(watchdogTimer);
       if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+      if (recognition && isListening) {
+         recognition.stop();
+      }
     }
 
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === 'visible' && hasRequestedPermission) attachOrientationListener(true);
-      else stopSensors();
+      if (document.visibilityState === 'visible' && hasRequestedPermission) {
+        attachOrientationListener(true);
+        if (mConf.enableVoice && !isListening) {
+          try { recognition.start(); } catch(e){}
+        }
+      } else {
+        stopSensors();
+      }
     });
 
     window.startAppManual = function() { attachOrientationListener(false); }
