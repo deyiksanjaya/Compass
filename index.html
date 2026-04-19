@@ -22,7 +22,7 @@
       color: #fff;
       margin: 0;
       overflow: hidden;
-      touch-action: none; /* Mencegah layar ke-scroll atau pull-to-refresh pas lagi swipe */
+      touch-action: none;
     }
     
     #calibration-overlay {
@@ -31,7 +31,6 @@
       cursor: pointer; transition: opacity 0.3s;
     }
 
-    /* Kustomisasi Slider iOS Style */
     input[type=range] {
       -webkit-appearance: none;
       background: rgba(255, 255, 255, 0.15);
@@ -78,8 +77,8 @@
   </div>
 
   <!-- Settings Modal Rahasia -->
-  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-    <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] overflow-y-auto hide-scrollbar" id="settings-card">
+  <div id="settings-modal" class="fixed inset-0 w-full h-[100dvh] bg-black/70 backdrop-blur-md z-[999] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 m-auto border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85vh] overflow-y-auto hide-scrollbar" id="settings-card">
       <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
       <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
 
@@ -194,7 +193,6 @@
   <!-- CONTAINER TEKS DIBAWAH -->
   <div class="absolute left-0 w-full flex flex-col items-center z-20 pointer-events-none" style="bottom: calc(env(safe-area-inset-bottom) + 5px);">
     
-    <!-- pointer-events-auto ditambahin biar tetep bisa ditap buat gyro -->
     <h1 id="headingText" onclick="armMagic()" class="leading-none pointer-events-auto tracking-tight" style="font-size: 5.5rem; font-weight: 100; margin-bottom: 24px;">0° N</h1>
 
     <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
@@ -265,7 +263,7 @@
     // --- SWIPE VARIABLES ---
     let touchStartX = 0;
     let touchStartY = 0;
-    const SWIPE_THRESHOLD = 40; // Sensitivitas minimum jarak swipe (px)
+    const SWIPE_THRESHOLD = 40;
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
@@ -278,7 +276,6 @@
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
 
-    // Buat input gyro tetep harus tap heading text
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE') {
         isArmed = true;
@@ -372,9 +369,7 @@
     }
 
     // --- SWIPE EVENT LISTENERS ---
-    // Dipasang di 'document' biar nangkap di seluruh area layar
     document.addEventListener('touchstart', e => {
-      // Jangan trigger kalau lagi di dalem menu settings
       if (e.target.closest('#settings-modal')) return;
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
@@ -383,11 +378,7 @@
     document.addEventListener('touchend', e => {
       if (e.target.closest('#settings-modal')) return;
       
-      // Syarat isArmed dibuang dari sini, 
-      // jadi kapan aja layarnya di-swipe, dia tetep ngebaca.
       if (!mConf.enableSwipe) return;
-      
-      // Kasih toleransi, kalau status masih IDLE atau udah keburu LOCKED (misal mau ralat swipe), tetep terima input
       if (mState !== 'IDLE' && mState !== 'LOCKED') return;
 
       let touchEndX = e.changedTouches[0].screenX;
@@ -398,14 +389,13 @@
 
       if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
         if (Math.abs(dx) > Math.abs(dy)) {
-          // Horizontal Swipe
-          activeDirection = dx > 0 ? 90 : 270; // Kanan (E), Kiri (W)
+          // Horizontal Swipe (Sudah dibalik)
+          activeDirection = dx > 0 ? 270 : 90; 
         } else {
           // Vertical Swipe
-          activeDirection = dy > 0 ? 180 : 0; // Bawah (S), Atas (N)
+          activeDirection = dy > 0 ? 180 : 0; 
         }
         
-        // Auto-arm dan langsung lompat ke state LOCKED
         isArmed = true;
         mState = 'LOCKED';
         if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
