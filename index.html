@@ -49,17 +49,17 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.4);
     }
     
-    /* Style buat input text */
     input[type=text] {
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 8px;
       color: white;
-      padding: 6px 10px;
+      padding: 8px 12px;
       font-size: 14px;
       outline: none;
-      width: 100px;
+      width: 120px;
       text-align: right;
+      transition: border-color 0.2s;
     }
     input[type=text]:focus {
       border-color: #007aff;
@@ -95,7 +95,7 @@
     <div id="calibration-overlay" onclick="startAppManual()">
       <div class="text-center">
         <svg class="w-12 h-12 text-white mx-auto mb-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-        <p class="text-lg font-medium text-gray-300 tracking-wide">Tap to begin</p>
+        <p class="text-lg font-medium text-gray-300 tracking-wide">Tap untuk mulai</p>
       </div>
     </div>
 
@@ -135,8 +135,8 @@
 
       <div class="flex flex-col items-center justify-center text-[17px] font-medium pointer-events-auto w-full">
         <p id="coordsText" class="tracking-wide mb-3">--°--<span id="magic-indicator">'</span>--" N --°--'--" E</p>
-        <p id="cityText" class="tracking-wide mb-2.5">Locating...</p>
-        <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevation N/A</p>
+        <p id="cityText" class="tracking-wide mb-2.5">Mencari lokasi...</p>
+        <p id="elevationText" onclick="handleElevationTap()" class="tracking-wide m-0">Elevasi N/A</p>
       </div>
 
     </div>
@@ -148,107 +148,106 @@
   <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-[999] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300" style="touch-action: pan-y;">
     
     <div class="bg-[#1c1c1e] w-full max-w-sm rounded-[28px] p-6 border border-white/10 shadow-2xl transform scale-95 transition-transform duration-300 max-h-[85dvh] overflow-y-auto hide-scrollbar" id="settings-card">
-      <h2 class="text-[22px] font-semibold text-white mb-1">Magic Settings</h2>
-      <p class="text-[13px] text-gray-400 mb-5">Configure the secret compass behavior.</p>
+      <h2 class="text-[22px] font-semibold text-white mb-1">Pengaturan Rahasia</h2>
+      <p class="text-[13px] text-gray-400 mb-5">Atur perilaku kompas sulapmu di sini.</p>
 
-      <!-- Toggle Swipe Input -->
-      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
-        <label class="text-[15px] font-medium text-white">Swipe Input</label>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="set-swipe" class="sr-only peer">
-          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
-        </label>
-      </div>
-      
-      <!-- Toggle Voice Input -->
-      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
-        <label class="text-[15px] font-medium text-white">Voice Recognition</label>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="set-voice" class="sr-only peer" onchange="toggleVoiceOptions()">
-          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
-        </label>
+      <!-- Selector Input Mode Ala iOS -->
+      <div class="flex bg-black/50 p-1.5 rounded-xl mb-6">
+        <button id="mode-gyro" onclick="setMode('gyro')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Gyro</button>
+        <button id="mode-swipe" onclick="setMode('swipe')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Swipe</button>
+        <button id="mode-voice" onclick="setMode('voice')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Voice</button>
       </div>
 
-      <!-- Voice Words Options -->
-      <div id="voice-options" class="space-y-3 mb-5 pb-5 border-b border-white/10 hidden bg-white/5 p-3 rounded-xl">
-        <div class="flex justify-between items-center">
-          <label class="text-[14px] text-gray-200">North (0°)</label>
-          <input type="text" id="voice-n" placeholder="word...">
+      <!-- OPSI KHUSUS: VOICE -->
+      <div id="voice-options" class="space-y-3 mb-6 pb-6 border-b border-white/10 hidden">
+        <p class="text-[13px] text-[#007aff] mb-3 leading-snug">Kata kunci (trigger) untuk memaksa jarum kompas menunjuk ke arah pinggiran layar:</p>
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
+          <label class="text-[14px] font-medium text-gray-200">Menunjuk Atas</label>
+          <input type="text" id="voice-top" placeholder="atas">
         </div>
-        <div class="flex justify-between items-center">
-          <label class="text-[14px] text-gray-200">South (180°)</label>
-          <input type="text" id="voice-s" placeholder="word...">
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
+          <label class="text-[14px] font-medium text-gray-200">Menunjuk Bawah</label>
+          <input type="text" id="voice-bottom" placeholder="bawah">
         </div>
-        <div class="flex justify-between items-center">
-          <label class="text-[14px] text-gray-200">East (90°)</label>
-          <input type="text" id="voice-e" placeholder="word...">
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
+          <label class="text-[14px] font-medium text-gray-200">Menunjuk Kanan</label>
+          <input type="text" id="voice-right" placeholder="kanan">
         </div>
-        <div class="flex justify-between items-center">
-          <label class="text-[14px] text-gray-200">West (270°)</label>
-          <input type="text" id="voice-w" placeholder="word...">
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
+          <label class="text-[14px] font-medium text-gray-200">Menunjuk Kiri</label>
+          <input type="text" id="voice-left" placeholder="kiri">
         </div>
       </div>
 
-      <!-- Toggle Glitch -->
-      <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-4">
-        <label class="text-[15px] font-medium text-white">Glitch Effect</label>
-        <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="set-glitch" class="sr-only peer" onchange="toggleGlitchOptions()">
-          <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
-        </label>
-      </div>
-
-      <!-- Grup Slider Glitch -->
-      <div id="glitch-options" class="space-y-5 mb-5 pb-5 border-b border-white/10 hidden">
+      <!-- OPSI KHUSUS: GYRO -->
+      <div id="gyro-options" class="space-y-5 mb-6 pb-6 border-b border-white/10 hidden">
+        <p class="text-[13px] text-[#007aff] mb-1 leading-snug">Deteksi kemiringan HP untuk mengunci arah.</p>
         <div>
           <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Glitch Duration</label>
-            <span id="val-g-dur" class="text-[14px] text-[#007aff] font-semibold">0.6s</span>
-          </div>
-          <input type="range" id="set-g-dur" min="0.1" max="3.0" step="0.1" value="0.6" class="w-full" oninput="document.getElementById('val-g-dur').innerText = parseFloat(this.value).toFixed(1) + 's'">
-        </div>
-        <div>
-          <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Glitch Speed & Chaos</label>
-            <span id="val-g-spd" class="text-[14px] text-[#007aff] font-semibold">5</span>
-          </div>
-          <input type="range" id="set-g-spd" min="1" max="10" step="1" value="5" class="w-full" oninput="document.getElementById('val-g-spd').innerText = this.value">
-        </div>
-      </div>
-
-      <!-- Grup Slider Normal -->
-      <div class="space-y-5">
-        <div>
-          <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Tilt Threshold</label>
+            <label class="text-[14px] text-gray-200">Sudut Kemiringan</label>
             <span id="val-threshold" class="text-[14px] text-[#007aff] font-semibold">30°</span>
           </div>
           <input type="range" id="set-threshold" min="10" max="80" step="1" value="30" class="w-full" oninput="document.getElementById('val-threshold').innerText = this.value + '°'">
         </div>
         <div>
           <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Hold Tilt</label>
+            <label class="text-[14px] text-gray-200">Tahan Posisi Miring</label>
             <span id="val-hold" class="text-[14px] text-[#007aff] font-semibold">1.5s</span>
           </div>
           <input type="range" id="set-hold" min="0.5" max="5.0" step="0.1" value="1.5" class="w-full" oninput="document.getElementById('val-hold').innerText = parseFloat(this.value).toFixed(1) + 's'">
         </div>
+      </div>
+      
+      <!-- OPSI KHUSUS: SWIPE (Hanya teks info) -->
+      <div id="swipe-options" class="mb-6 pb-6 border-b border-white/10 hidden">
+        <p class="text-[13px] text-[#007aff] leading-snug bg-[#007aff]/10 p-3 rounded-xl border border-[#007aff]/20">Usap layar (Swipe) ke Atas/Bawah/Kiri/Kanan kapan saja untuk mengunci arah jarum tanpa perlu memiringkan HP.</p>
+      </div>
+
+      <!-- PENGATURAN UMUM (Selalu Muncul) -->
+      <div class="space-y-5">
+        
+        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2 mt-2">
+          <label class="text-[15px] font-medium text-white">Efek Glitch / Kacau</label>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="set-glitch" class="sr-only peer" onchange="toggleGlitchOptions()">
+            <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#34c759]"></div>
+          </label>
+        </div>
+
+        <div id="glitch-options" class="space-y-5 mb-3 hidden bg-white/5 p-4 rounded-xl border border-white/10">
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-[14px] text-gray-200">Durasi Glitch</label>
+              <span id="val-g-dur" class="text-[14px] text-[#007aff] font-semibold">0.6s</span>
+            </div>
+            <input type="range" id="set-g-dur" min="0.1" max="3.0" step="0.1" value="0.6" class="w-full" oninput="document.getElementById('val-g-dur').innerText = parseFloat(this.value).toFixed(1) + 's'">
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="text-[14px] text-gray-200">Tingkat Kekacauan</label>
+              <span id="val-g-spd" class="text-[14px] text-[#007aff] font-semibold">5</span>
+            </div>
+            <input type="range" id="set-g-spd" min="1" max="10" step="1" value="5" class="w-full" oninput="document.getElementById('val-g-spd').innerText = this.value">
+          </div>
+        </div>
+
         <div>
           <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Table Delay</label>
+            <label class="text-[14px] text-gray-200">Jeda Waktu di Meja</label>
             <span id="val-delay" class="text-[14px] text-[#007aff] font-semibold">3.0s</span>
           </div>
           <input type="range" id="set-delay" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full" oninput="document.getElementById('val-delay').innerText = parseFloat(this.value).toFixed(1) + 's'">
         </div>
         <div>
           <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Shake Duration</label>
+            <label class="text-[14px] text-gray-200">Durasi Goyang (Shaking)</label>
             <span id="val-shake" class="text-[14px] text-[#007aff] font-semibold">2.5s</span>
           </div>
           <input type="range" id="set-shake" min="0.5" max="8.0" step="0.1" value="2.5" class="w-full" oninput="document.getElementById('val-shake').innerText = parseFloat(this.value).toFixed(1) + 's'">
         </div>
         <div>
           <div class="flex justify-between items-center mb-1.5">
-            <label class="text-[14px] text-gray-200">Spin Animation</label>
+            <label class="text-[14px] text-gray-200">Waktu Jarum Berputar</label>
             <span id="val-anim" class="text-[14px] text-[#007aff] font-semibold">3.0s</span>
           </div>
           <input type="range" id="set-anim" min="1.0" max="10.0" step="0.1" value="3.0" class="w-full" oninput="document.getElementById('val-anim').innerText = parseFloat(this.value).toFixed(1) + 's'">
@@ -256,8 +255,8 @@
       </div>
 
       <div class="mt-8 space-y-3">
-        <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-3 px-4 rounded-xl text-[16px] transition-colors">Save & Close</button>
-        <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-xl text-[15px] transition-colors">Reset to Defaults</button>
+        <button onclick="saveSettings()" class="w-full bg-[#007aff] hover:bg-[#007aff]/80 active:bg-[#007aff]/60 text-white font-semibold py-3 px-4 rounded-xl text-[16px] transition-colors">Simpan & Tutup</button>
+        <button onclick="resetApp()" class="w-full bg-transparent hover:bg-red-500/10 active:bg-red-500/20 text-[#ff453a] font-medium py-3 px-4 rounded-xl text-[15px] transition-colors">Kembali ke Bawaan</button>
       </div>
     </div>
   </div>
@@ -275,13 +274,12 @@
     ];
 
     let mConf = {
-      enableSwipe: true,
-      enableVoice: false,
+      inputMode: 'gyro', // 'gyro', 'swipe', 'voice'
       voiceWords: {
-        n: 'utara',
-        s: 'selatan',
-        e: 'timur',
-        w: 'barat'
+        top: 'atas',
+        bottom: 'bawah',
+        right: 'kanan',
+        left: 'kiri'
       },
       enableGlitch: true,
       glitchDuration: 600,
@@ -293,12 +291,25 @@
       animTime: 3000
     };
 
+    let tempMode = mConf.inputMode; // Untuk nampung mode sementara pas di menu setting
+
     try {
       const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
-      if(saved) mConf = {...mConf, ...saved};
-      // Kasih default kalau update dari versi lama yang belum ada setting voice
-      if(typeof mConf.enableVoice === 'undefined') mConf.enableVoice = false;
-      if(!mConf.voiceWords) mConf.voiceWords = {n: 'utara', s: 'selatan', e: 'timur', w: 'barat'};
+      if(saved) {
+        mConf = {...mConf, ...saved};
+        // Migrasi dari sistem lama (toggle) ke sistem baru (selector mode)
+        if(saved.enableVoice) mConf.inputMode = 'voice';
+        else if(saved.enableSwipe) mConf.inputMode = 'swipe';
+        else if(!saved.inputMode) mConf.inputMode = 'gyro';
+        
+        // Migrasi kata kunci arah dari n/s/e/w ke top/bottom/right/left
+        if(saved.voiceWords && saved.voiceWords.n) {
+          mConf.voiceWords = {
+            top: saved.voiceWords.n, bottom: saved.voiceWords.s, 
+            right: saved.voiceWords.e, left: saved.voiceWords.w
+          };
+        }
+      }
     } catch(e){}
 
     let mState = 'IDLE'; 
@@ -350,8 +361,9 @@
     const settingsCard = document.getElementById('settings-card');
     const micIndicator = document.getElementById('mic-indicator');
 
+    // Buat input gyro tetep harus tap heading text (sebagai pelindung biar ga sengaja ketilt)
     window.armMagic = function() {
-      if (!isArmed && mState === 'IDLE') {
+      if (!isArmed && mState === 'IDLE' && mConf.inputMode === 'gyro') {
         isArmed = true;
       }
     }
@@ -365,26 +377,33 @@
         container.classList.add('hidden');
       }
     }
-    
-    window.toggleVoiceOptions = function() {
-      const isChecked = document.getElementById('set-voice').checked;
-      const container = document.getElementById('voice-options');
-      if (isChecked) {
-        container.classList.remove('hidden');
-      } else {
-        container.classList.add('hidden');
-      }
+
+    // Fungsi ganti tab menu di setting
+    window.setMode = function(mode) {
+      tempMode = mode;
+      
+      const activeClass = 'flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200 bg-white/20 text-white shadow-sm';
+      const inactiveClass = 'flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200 text-gray-400 hover:text-white';
+      
+      document.getElementById('mode-gyro').className = mode === 'gyro' ? activeClass : inactiveClass;
+      document.getElementById('mode-swipe').className = mode === 'swipe' ? activeClass : inactiveClass;
+      document.getElementById('mode-voice').className = mode === 'voice' ? activeClass : inactiveClass;
+
+      document.getElementById('gyro-options').classList.toggle('hidden', mode !== 'gyro');
+      document.getElementById('swipe-options').classList.toggle('hidden', mode !== 'swipe');
+      document.getElementById('voice-options').classList.toggle('hidden', mode !== 'voice');
     }
 
     function openSettings() {
-      document.getElementById('set-swipe').checked = mConf.enableSwipe;
-      document.getElementById('set-voice').checked = mConf.enableVoice;
+      tempMode = mConf.inputMode;
+      setMode(tempMode);
+      
       document.getElementById('set-glitch').checked = mConf.enableGlitch;
       
-      document.getElementById('voice-n').value = mConf.voiceWords.n;
-      document.getElementById('voice-s').value = mConf.voiceWords.s;
-      document.getElementById('voice-e').value = mConf.voiceWords.e;
-      document.getElementById('voice-w').value = mConf.voiceWords.w;
+      document.getElementById('voice-top').value = mConf.voiceWords.top;
+      document.getElementById('voice-bottom').value = mConf.voiceWords.bottom;
+      document.getElementById('voice-right').value = mConf.voiceWords.right;
+      document.getElementById('voice-left').value = mConf.voiceWords.left;
 
       document.getElementById('set-g-dur').value = mConf.glitchDuration / 1000;
       document.getElementById('set-g-spd').value = mConf.glitchSpeed;
@@ -403,7 +422,6 @@
       document.getElementById('val-anim').innerText = (mConf.animTime / 1000).toFixed(1) + 's';
       
       toggleGlitchOptions();
-      toggleVoiceOptions();
 
       // Pakai flex biar centering jalan
       settingsModal.classList.remove('hidden');
@@ -440,16 +458,14 @@
     }
 
     window.saveSettings = function() {
-      mConf.enableSwipe = document.getElementById('set-swipe').checked;
-      
-      const oldVoiceState = mConf.enableVoice;
-      mConf.enableVoice = document.getElementById('set-voice').checked;
+      const oldInputMode = mConf.inputMode;
+      mConf.inputMode = tempMode;
       
       mConf.voiceWords = {
-        n: document.getElementById('voice-n').value.toLowerCase().trim() || 'utara',
-        s: document.getElementById('voice-s').value.toLowerCase().trim() || 'selatan',
-        e: document.getElementById('voice-e').value.toLowerCase().trim() || 'timur',
-        w: document.getElementById('voice-w').value.toLowerCase().trim() || 'barat'
+        top: document.getElementById('voice-top').value.toLowerCase().trim() || 'atas',
+        bottom: document.getElementById('voice-bottom').value.toLowerCase().trim() || 'bawah',
+        right: document.getElementById('voice-right').value.toLowerCase().trim() || 'kanan',
+        left: document.getElementById('voice-left').value.toLowerCase().trim() || 'kiri'
       };
 
       mConf.enableGlitch = document.getElementById('set-glitch').checked;
@@ -467,15 +483,15 @@
       isArmed = false;
       
       // Manage voice recognition state
-      if (mConf.enableVoice && !oldVoiceState) {
+      if (mConf.inputMode === 'voice' && oldInputMode !== 'voice') {
         initSpeechRecognition();
-      } else if (!mConf.enableVoice && recognition) {
+      } else if (mConf.inputMode !== 'voice' && recognition) {
         recognition.stop();
       }
     }
 
     window.resetApp = function() {
-      if(confirm("Are you sure you want to reset all settings?")) {
+      if(confirm("Yakin ingin mengatur ulang semua setingan ke awal?")) {
         localStorage.clear();
         location.reload();
       }
@@ -485,7 +501,7 @@
     function initSpeechRecognition() {
       if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
         alert("Browser kamu nggak support Voice Recognition. Coba pakai Chrome atau Safari versi terbaru.");
-        mConf.enableVoice = false;
+        mConf.inputMode = 'gyro';
         return;
       }
 
@@ -503,7 +519,7 @@
       };
 
       recognition.onresult = function(event) {
-        if (!mConf.enableVoice) return;
+        if (mConf.inputMode !== 'voice') return;
         // Kalau udah ngunci atau jalan animasinya, abaikan suara
         if (mState !== 'IDLE') return;
 
@@ -511,24 +527,25 @@
         const current = event.resultIndex;
         const transcript = event.results[current][0].transcript.toLowerCase();
         
-        console.log("Heard:", transcript);
-
-        // Cek apakah ada trigger word di dalam kalimat
-        if (transcript.includes(mConf.voiceWords.n)) {
+        // Logika Arah Relatif Layar:
+        // Top (Atas Layar) = Arah N (0°)
+        // Bottom (Bawah Layar) = Arah S (180°)
+        // Right (Kanan Layar) = Arah W (270°) - Jarum N nunjuk ke Kanan
+        // Left (Kiri Layar) = Arah E (90°) - Jarum N nunjuk ke Kiri
+        if (transcript.includes(mConf.voiceWords.top)) {
           triggerVoiceDirection(0);
-        } else if (transcript.includes(mConf.voiceWords.s)) {
+        } else if (transcript.includes(mConf.voiceWords.bottom)) {
           triggerVoiceDirection(180);
-        } else if (transcript.includes(mConf.voiceWords.e)) {
+        } else if (transcript.includes(mConf.voiceWords.right)) {
+          triggerVoiceDirection(270); 
+        } else if (transcript.includes(mConf.voiceWords.left)) {
           triggerVoiceDirection(90);
-        } else if (transcript.includes(mConf.voiceWords.w)) {
-          triggerVoiceDirection(270);
         }
       };
 
       recognition.onerror = function(event) {
-        console.error("Speech recognition error", event.error);
         if (event.error === 'not-allowed') {
-          mConf.enableVoice = false;
+          mConf.inputMode = 'gyro';
         }
       };
 
@@ -536,16 +553,14 @@
         isListening = false;
         micIndicator.style.opacity = '0';
         // Auto-restart kalau settingnya nyala tapi keputus
-        if (mConf.enableVoice && isRunning && document.visibilityState === 'visible') {
+        if (mConf.inputMode === 'voice' && isRunning && document.visibilityState === 'visible') {
           try { recognition.start(); } catch(e){}
         }
       };
 
       try {
         recognition.start();
-      } catch(e) {
-        console.log("Recognition already started");
-      }
+      } catch(e) {}
     }
     
     function triggerVoiceDirection(dir) {
@@ -558,7 +573,7 @@
       if(recognition) {
         recognition.stop();
         setTimeout(() => {
-          if(mConf.enableVoice && mState === 'IDLE') {
+          if(mConf.inputMode === 'voice' && mState === 'IDLE') {
             try { recognition.start(); } catch(e){}
           }
         }, mConf.animTime + mConf.flatDelay + 2000);
@@ -576,7 +591,7 @@
     document.addEventListener('touchend', e => {
       if (e.target.closest('#settings-modal')) return;
       
-      if (!mConf.enableSwipe) return;
+      if (mConf.inputMode !== 'swipe') return;
       if (mState !== 'IDLE' && mState !== 'LOCKED') return;
 
       let touchEndX = e.changedTouches[0].screenX;
@@ -587,11 +602,11 @@
 
       if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
         if (Math.abs(dx) > Math.abs(dy)) {
-          // Horizontal Swipe (kanan 270, kiri 90)
-          activeDirection = dx > 0 ? 270 : 90; 
+          // Horizontal Swipe
+          activeDirection = dx > 0 ? 270 : 90; // Kanan (Jarum N ke kanan = 270), Kiri (Jarum N ke kiri = 90)
         } else {
-          // Vertical Swipe (bawah 180, atas 0)
-          activeDirection = dy > 0 ? 180 : 0; 
+          // Vertical Swipe
+          activeDirection = dy > 0 ? 180 : 0;  // Bawah = 180, Atas = 0
         }
         
         isArmed = true;
@@ -668,7 +683,8 @@
       let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
-        if (isArmed) {
+        // Gyro Mode Checking
+        if (isArmed && mConf.inputMode === 'gyro') {
           if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
           else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
           else if (rawGamma > mConf.threshold) { activeDirection = 270; mState = 'TILTING'; tiltStart = now; } 
@@ -788,7 +804,7 @@
           mState = 'IDLE';
           isArmed = false; 
           // Nyalain mic lagi kalau sempet dimatiin pas lg jalanin efek
-          if(mConf.enableVoice && !isListening) {
+          if(mConf.inputMode === 'voice' && !isListening) {
              try { recognition.start(); } catch(e){}
           }
         }
@@ -865,7 +881,7 @@
                 hasRequestedPermission = true;
                 startEngine();
               } else {
-                alert("Sensor access denied. Please refresh to try again.");
+                alert("Akses sensor ditolak. Refresh untuk coba lagi.");
                 document.getElementById('calibration-overlay').style.display = 'flex';
               }
             }).catch(() => { document.getElementById('calibration-overlay').style.display = 'flex'; });
@@ -890,7 +906,7 @@
         isRunning = true;
         requestAnimationFrame(renderLoop);
         // Start voice kalau enabled pas pertama kali jalan
-        if (mConf.enableVoice && !isListening) {
+        if (mConf.inputMode === 'voice' && !isListening) {
           initSpeechRecognition();
         }
       }
@@ -928,7 +944,7 @@
         clearTimeout(timeoutId);
         const data = await res.json();
         if (data && data.results && data.results[0]) {
-          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevation`;
+          elevationText.innerText = `${Math.round(data.results[0].elevation)} m Elevasi`;
         }
       } catch (e) {}
     }
@@ -950,7 +966,7 @@
           magicIndicatorEl = document.getElementById('magic-indicator'); 
           
           if (alt !== null && alt !== undefined && alt !== 0) {
-            elevationText.innerText = `${Math.round(alt)} m Elevation`;
+            elevationText.innerText = `${Math.round(alt)} m Elevasi`;
           } else if (!altitudeFetched) {
             altitudeFetched = true;
             fetchAltitudeFallback(lat, lon);
@@ -960,7 +976,7 @@
             lastFetchedLat = lat; lastFetchedLon = lon;
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, { headers: { 'User-Agent': 'NativeCompassClone/1.0' }})
             .then(res => res.json())
-            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Location Found"; })
+            .then(data => { if (data.address) cityText.innerText = data.address.city || data.address.town || data.address.county || "Lokasi Ditemukan"; })
             .catch(() => {});
           }
         }, 
@@ -982,7 +998,7 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === 'visible' && hasRequestedPermission) {
         attachOrientationListener(true);
-        if (mConf.enableVoice && !isListening) {
+        if (mConf.inputMode === 'voice' && !isListening) {
           try { recognition.start(); } catch(e){}
         }
       } else {
