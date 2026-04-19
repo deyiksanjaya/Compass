@@ -122,11 +122,10 @@
 
 
   <!-- SETTINGS MODAL RAHASIA FULLSCREEN -->
-  <!-- Container ini punya touch-action: pan-y biar bisa di-scroll -->
   <div id="settings-modal" class="fixed inset-0 bg-[#1c1c1e] z-[999] hidden overflow-y-auto hide-scrollbar opacity-0 transition-opacity duration-300" style="touch-action: pan-y;">
     
-    <!-- Wrapper konten yang ngatur layout dan animasi slide -->
-    <div id="settings-content" class="min-h-full flex flex-col max-w-md mx-auto px-6 pt-12 pb-[max(env(safe-area-inset-bottom),2rem)] transform translate-y-10 transition-transform duration-300">
+    <!-- Perbaikan di min-h-[100dvh] biar beneran fullscreen full mentok bawah -->
+    <div id="settings-content" class="min-h-[100dvh] flex flex-col max-w-md mx-auto px-6 pt-12 pb-[max(env(safe-area-inset-bottom),2rem)] transform translate-y-10 transition-transform duration-300">
       
       <h2 class="text-[32px] font-bold text-white mb-1 mt-4">Magic Settings</h2>
       <p class="text-[15px] text-gray-400 mb-8">Configure the secret compass behavior.</p>
@@ -327,7 +326,7 @@
       
       toggleGlitchOptions();
 
-      // Show container (display: block instead of flex now)
+      // Show container
       settingsModal.classList.remove('hidden');
       settingsModal.classList.add('block');
       
