@@ -48,32 +48,12 @@
       cursor: pointer;
       box-shadow: 0 2px 5px rgba(0,0,0,0.4);
     }
-    
-    input[type=text] {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      color: white;
-      padding: 8px 12px;
-      font-size: 14px;
-      outline: none;
-      width: 120px;
-      text-align: right;
-      transition: border-color 0.2s;
-    }
-    input[type=text]:focus {
-      border-color: #007aff;
-    }
 
     .label-container { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
     .label-text { position: absolute; transform: translate(-50%, -50%); text-align: center; }
     
     #magic-indicator {
       transition: opacity 0.2s ease-in-out;
-    }
-    
-    #mic-indicator {
-      transition: opacity 0.3s;
     }
 
     .hide-scrollbar::-webkit-scrollbar {
@@ -98,9 +78,6 @@
         <p class="text-lg font-medium text-gray-300 tracking-wide">Tap untuk mulai</p>
       </div>
     </div>
-
-    <!-- Indikator Mic (Kecil di pojok kiri atas buat nandain listening jalan) -->
-    <div id="mic-indicator" class="absolute top-4 left-4 w-2 h-2 rounded-full bg-red-500 opacity-0 z-20 pointer-events-none"></div>
 
     <!-- CONTAINER KOMPAS -->
     <div class="absolute top-[18vh] left-0 w-full flex justify-center z-10 pointer-events-none">
@@ -155,28 +132,6 @@
       <div class="flex bg-black/50 p-1.5 rounded-xl mb-6">
         <button id="mode-gyro" onclick="setMode('gyro')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Gyro</button>
         <button id="mode-swipe" onclick="setMode('swipe')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Swipe</button>
-        <button id="mode-voice" onclick="setMode('voice')" class="flex-1 py-1.5 text-[14px] font-medium rounded-lg transition-all duration-200">Voice</button>
-      </div>
-
-      <!-- OPSI KHUSUS: VOICE -->
-      <div id="voice-options" class="space-y-3 mb-6 pb-6 border-b border-white/10 hidden">
-        <p class="text-[13px] text-[#007aff] mb-3 leading-snug">Kata kunci (trigger) untuk memaksa jarum kompas menunjuk ke arah pinggiran layar:</p>
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
-          <label class="text-[14px] font-medium text-gray-200">Menunjuk Atas</label>
-          <input type="text" id="voice-top" placeholder="atas">
-        </div>
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
-          <label class="text-[14px] font-medium text-gray-200">Menunjuk Bawah</label>
-          <input type="text" id="voice-bottom" placeholder="bawah">
-        </div>
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
-          <label class="text-[14px] font-medium text-gray-200">Menunjuk Kanan</label>
-          <input type="text" id="voice-right" placeholder="kanan">
-        </div>
-        <div class="flex justify-between items-center bg-white/5 p-3 rounded-[14px]">
-          <label class="text-[14px] font-medium text-gray-200">Menunjuk Kiri</label>
-          <input type="text" id="voice-left" placeholder="kiri">
-        </div>
       </div>
 
       <!-- OPSI KHUSUS: GYRO -->
@@ -274,13 +229,7 @@
     ];
 
     let mConf = {
-      inputMode: 'gyro', // 'gyro', 'swipe', 'voice'
-      voiceWords: {
-        top: 'atas',
-        bottom: 'bawah',
-        right: 'kanan',
-        left: 'kiri'
-      },
+      inputMode: 'gyro', // 'gyro', 'swipe'
       enableGlitch: true,
       glitchDuration: 600,
       glitchSpeed: 5,
@@ -291,24 +240,14 @@
       animTime: 3000
     };
 
-    let tempMode = mConf.inputMode; // Untuk nampung mode sementara pas di menu setting
+    let tempMode = mConf.inputMode;
 
     try {
       const saved = JSON.parse(localStorage.getItem('compassMagicSettings'));
       if(saved) {
         mConf = {...mConf, ...saved};
-        // Migrasi dari sistem lama (toggle) ke sistem baru (selector mode)
-        if(saved.enableVoice) mConf.inputMode = 'voice';
-        else if(saved.enableSwipe) mConf.inputMode = 'swipe';
-        else if(!saved.inputMode) mConf.inputMode = 'gyro';
-        
-        // Migrasi kata kunci arah dari n/s/e/w ke top/bottom/right/left
-        if(saved.voiceWords && saved.voiceWords.n) {
-          mConf.voiceWords = {
-            top: saved.voiceWords.n, bottom: saved.voiceWords.s, 
-            right: saved.voiceWords.e, left: saved.voiceWords.w
-          };
-        }
+        // Jika sebelumnya sempat ke-save mode voice, kita kembalikan ke swipe
+        if(mConf.inputMode === 'voice') mConf.inputMode = 'swipe';
       }
     } catch(e){}
 
@@ -344,10 +283,6 @@
     let touchStartX = 0;
     let touchStartY = 0;
     const SWIPE_THRESHOLD = 40;
-    
-    // --- VOICE RECOGNITION VARIABLES ---
-    let recognition = null;
-    let isListening = false;
 
     const dial = document.getElementById('dial');
     const labelsContainer = document.getElementById('labelsContainer');
@@ -359,9 +294,7 @@
     const overlay = document.getElementById('calibration-overlay');
     const settingsModal = document.getElementById('settings-modal');
     const settingsCard = document.getElementById('settings-card');
-    const micIndicator = document.getElementById('mic-indicator');
 
-    // Buat input gyro tetep harus tap heading text (sebagai pelindung biar ga sengaja ketilt)
     window.armMagic = function() {
       if (!isArmed && mState === 'IDLE' && mConf.inputMode === 'gyro') {
         isArmed = true;
@@ -378,7 +311,6 @@
       }
     }
 
-    // Fungsi ganti tab menu di setting
     window.setMode = function(mode) {
       tempMode = mode;
       
@@ -387,11 +319,9 @@
       
       document.getElementById('mode-gyro').className = mode === 'gyro' ? activeClass : inactiveClass;
       document.getElementById('mode-swipe').className = mode === 'swipe' ? activeClass : inactiveClass;
-      document.getElementById('mode-voice').className = mode === 'voice' ? activeClass : inactiveClass;
 
       document.getElementById('gyro-options').classList.toggle('hidden', mode !== 'gyro');
       document.getElementById('swipe-options').classList.toggle('hidden', mode !== 'swipe');
-      document.getElementById('voice-options').classList.toggle('hidden', mode !== 'voice');
     }
 
     function openSettings() {
@@ -399,12 +329,6 @@
       setMode(tempMode);
       
       document.getElementById('set-glitch').checked = mConf.enableGlitch;
-      
-      document.getElementById('voice-top').value = mConf.voiceWords.top;
-      document.getElementById('voice-bottom').value = mConf.voiceWords.bottom;
-      document.getElementById('voice-right').value = mConf.voiceWords.right;
-      document.getElementById('voice-left').value = mConf.voiceWords.left;
-
       document.getElementById('set-g-dur').value = mConf.glitchDuration / 1000;
       document.getElementById('set-g-spd').value = mConf.glitchSpeed;
       document.getElementById('set-threshold').value = mConf.threshold;
@@ -423,13 +347,11 @@
       
       toggleGlitchOptions();
 
-      // Pakai flex biar centering jalan
       settingsModal.classList.remove('hidden');
       settingsModal.classList.add('flex');
       
       requestAnimationFrame(() => {
         settingsModal.classList.remove('opacity-0');
-        // Zoom-in effect
         settingsCard.classList.remove('scale-95');
         settingsCard.classList.add('scale-100');
       });
@@ -437,7 +359,6 @@
 
     function closeSettings() {
       settingsModal.classList.add('opacity-0');
-      // Zoom-out effect
       settingsCard.classList.remove('scale-100');
       settingsCard.classList.add('scale-95');
       
@@ -458,16 +379,7 @@
     }
 
     window.saveSettings = function() {
-      const oldInputMode = mConf.inputMode;
       mConf.inputMode = tempMode;
-      
-      mConf.voiceWords = {
-        top: document.getElementById('voice-top').value.toLowerCase().trim() || 'atas',
-        bottom: document.getElementById('voice-bottom').value.toLowerCase().trim() || 'bawah',
-        right: document.getElementById('voice-right').value.toLowerCase().trim() || 'kanan',
-        left: document.getElementById('voice-left').value.toLowerCase().trim() || 'kiri'
-      };
-
       mConf.enableGlitch = document.getElementById('set-glitch').checked;
       mConf.glitchDuration = parseFloat(document.getElementById('set-g-dur').value) * 1000;
       mConf.glitchSpeed = parseInt(document.getElementById('set-g-spd').value);
@@ -481,13 +393,6 @@
       closeSettings();
       mState = 'IDLE';
       isArmed = false;
-      
-      // Manage voice recognition state
-      if (mConf.inputMode === 'voice' && oldInputMode !== 'voice') {
-        initSpeechRecognition();
-      } else if (mConf.inputMode !== 'voice' && recognition) {
-        recognition.stop();
-      }
     }
 
     window.resetApp = function() {
@@ -496,93 +401,9 @@
         location.reload();
       }
     }
-    
-    // --- VOICE RECOGNITION SETUP ---
-    function initSpeechRecognition() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        alert("Browser kamu nggak support Voice Recognition. Coba pakai Chrome atau Safari versi terbaru.");
-        mConf.inputMode = 'gyro';
-        return;
-      }
-
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      // Pakai bahasa Indonesia sebagai default
-      recognition.lang = 'id-ID';
-
-      recognition.onstart = function() {
-        isListening = true;
-        micIndicator.style.opacity = '1';
-      };
-
-      recognition.onresult = function(event) {
-        if (mConf.inputMode !== 'voice') return;
-        // Kalau udah ngunci atau jalan animasinya, abaikan suara
-        if (mState !== 'IDLE') return;
-
-        // Ambil hasil omongan terakhir
-        const current = event.resultIndex;
-        const transcript = event.results[current][0].transcript.toLowerCase();
-        
-        // Logika Arah Relatif Layar:
-        // Top (Atas Layar) = Arah N (0°)
-        // Bottom (Bawah Layar) = Arah S (180°)
-        // Right (Kanan Layar) = Arah W (270°) - Jarum N nunjuk ke Kanan
-        // Left (Kiri Layar) = Arah E (90°) - Jarum N nunjuk ke Kiri
-        if (transcript.includes(mConf.voiceWords.top)) {
-          triggerVoiceDirection(0);
-        } else if (transcript.includes(mConf.voiceWords.bottom)) {
-          triggerVoiceDirection(180);
-        } else if (transcript.includes(mConf.voiceWords.right)) {
-          triggerVoiceDirection(270); 
-        } else if (transcript.includes(mConf.voiceWords.left)) {
-          triggerVoiceDirection(90);
-        }
-      };
-
-      recognition.onerror = function(event) {
-        if (event.error === 'not-allowed') {
-          mConf.inputMode = 'gyro';
-        }
-      };
-
-      recognition.onend = function() {
-        isListening = false;
-        micIndicator.style.opacity = '0';
-        // Auto-restart kalau settingnya nyala tapi keputus
-        if (mConf.inputMode === 'voice' && isRunning && document.visibilityState === 'visible') {
-          try { recognition.start(); } catch(e){}
-        }
-      };
-
-      try {
-        recognition.start();
-      } catch(e) {}
-    }
-    
-    function triggerVoiceDirection(dir) {
-      activeDirection = dir;
-      isArmed = true;
-      mState = 'LOCKED';
-      if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
-      
-      // Stop dengerin sementara biar ga ketrigger dua kali beruntun
-      if(recognition) {
-        recognition.stop();
-        setTimeout(() => {
-          if(mConf.inputMode === 'voice' && mState === 'IDLE') {
-            try { recognition.start(); } catch(e){}
-          }
-        }, mConf.animTime + mConf.flatDelay + 2000);
-      }
-    }
 
     // --- SWIPE EVENT LISTENERS ---
     document.addEventListener('touchstart', e => {
-      // Ignore kalo tap di dalem menu settings
       if (e.target.closest('#settings-modal')) return;
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
@@ -603,10 +424,10 @@
       if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(dy) > SWIPE_THRESHOLD) {
         if (Math.abs(dx) > Math.abs(dy)) {
           // Horizontal Swipe
-          activeDirection = dx > 0 ? 270 : 90; // Kanan (Jarum N ke kanan = 270), Kiri (Jarum N ke kiri = 90)
+          activeDirection = dx > 0 ? 270 : 90; 
         } else {
           // Vertical Swipe
-          activeDirection = dy > 0 ? 180 : 0;  // Bawah = 180, Atas = 0
+          activeDirection = dy > 0 ? 180 : 0;  
         }
         
         isArmed = true;
@@ -683,7 +504,6 @@
       let isFlat = Math.abs(rawBeta) < 15 && Math.abs(rawGamma) < 15;
 
       if (mState === 'IDLE') {
-        // Gyro Mode Checking
         if (isArmed && mConf.inputMode === 'gyro') {
           if (rawBeta < -mConf.threshold) { activeDirection = 0; mState = 'TILTING'; tiltStart = now; }       
           else if (rawBeta > mConf.threshold) { activeDirection = 180; mState = 'TILTING'; tiltStart = now; } 
@@ -803,10 +623,6 @@
         if (progress >= 1) {
           mState = 'IDLE';
           isArmed = false; 
-          // Nyalain mic lagi kalau sempet dimatiin pas lg jalanin efek
-          if(mConf.inputMode === 'voice' && !isListening) {
-             try { recognition.start(); } catch(e){}
-          }
         }
       }
 
@@ -905,10 +721,6 @@
       if (!isRunning) {
         isRunning = true;
         requestAnimationFrame(renderLoop);
-        // Start voice kalau enabled pas pertama kali jalan
-        if (mConf.inputMode === 'voice' && !isListening) {
-          initSpeechRecognition();
-        }
       }
       startGPS();
       resetWatchdog();
@@ -990,17 +802,11 @@
       window.removeEventListener('deviceorientation', handleOrientation);
       clearTimeout(watchdogTimer);
       if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-      if (recognition && isListening) {
-         recognition.stop();
-      }
     }
 
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === 'visible' && hasRequestedPermission) {
         attachOrientationListener(true);
-        if (mConf.inputMode === 'voice' && !isListening) {
-          try { recognition.start(); } catch(e){}
-        }
       } else {
         stopSensors();
       }
